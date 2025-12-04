@@ -78,14 +78,14 @@
       height: 100vh !important;
       padding: 0;
       box-sizing: border-box;
-      overflow: hidden; /* Prevent overflow artifacts */
+      overflow: visible; /* Allow full chart visibility without clipping */
     }
     
     #widgetHero #chart2 svg, #widgetHero #sankey svg {
       width: 100% !important;
       height: 100% !important;
-      max-width: 100% !important;
-      max-height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
     }
     
     #table {
