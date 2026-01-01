@@ -21,7 +21,7 @@ Exiobase+BEA processing vibe coded with guidance from the US EPA's [generate\_im
 ### In the works - India trade flow
 
 We're aiming for the equivalent to the US BEA state data process above.  
-Python at [india-state-allocation.py](https://github.com/ModelEarth/exiobase/blob/main/tradeflow/india-state-allocation.py) and resulting [India trade flow data](https://github.com/ModelEarth/exiobase/tree/main/India_data).
+[Overview](../../exiobase/India_data/) for Python at [india-state-allocation.py](https://github.com/ModelEarth/exiobase/blob/main/tradeflow/india-state-allocation.py) and resulting [India trade flow data](https://github.com/ModelEarth/exiobase/tree/main/India_data).
 
 
 ## Tables: trade, factor, industry 
