@@ -89,10 +89,10 @@ function renderFDASection(section, quantity) {
 
     sectionDiv.innerHTML = `
         <div class="section-title ${isPrimary ? 'primary-metric' : ''}">
-            <span>
+            <span class="metric-title-row">
                 ${isPrimary ? '<strong>' : ''}${section.name}${isPrimary ? '</strong>' : ''}
                 ${tooltip}
-                <span class="value">${formattedVal}${unit}</span>
+                <span class="metric-value-inline">${formattedVal}${unit}</span>
             </span>
             <span class="daily-value">${percentOfAvg ? percentOfAvg + '%*' : ''}</span>
         </div>
@@ -1188,11 +1188,7 @@ function renderProductDescription(data) {
     const manufacturer = cleanText(data.manufacturer?.name || data.mfr?.name || data.manufacturer_name || "");
     const brand = cleanText(data.brand || data.brand_name || "");
 
-    if (!description && !manufacturer) {
-        div.style.display = "none";
-        return div;
-    }
-
+    // Always render the section (for additional properties)
     div.innerHTML = `
         <div class="section-header">
             <h4>Product Details</h4>
@@ -1207,6 +1203,12 @@ function renderProductDescription(data) {
             ${description ? `<p class="description-text">${description}</p>` : ''}
         </div>
     `;
+
+    // Append additional properties inline at the bottom
+    const additionalProps = renderAdditionalPropertiesInline(data);
+    if (additionalProps) {
+        div.appendChild(additionalProps);
+    }
 
     return div;
 }
@@ -1323,9 +1325,6 @@ function renderProductDetailsPanel(data) {
     columnsDiv.appendChild(rightCol);
     panel.appendChild(columnsDiv);
 
-    // Additional properties inline at bottom (3 columns with separator)
-    panel.appendChild(renderAdditionalPropertiesInline(data));
-
     return panel;
 }
 
@@ -1360,9 +1359,6 @@ function renderProductDetailsPanelWithCalculators(data, profile) {
     columnsDiv.appendChild(leftCol);
     columnsDiv.appendChild(rightCol);
     panel.appendChild(columnsDiv);
-
-    // Additional properties inline at bottom (3 columns with separator)
-    panel.appendChild(renderAdditionalPropertiesInline(data));
 
     return panel;
 }

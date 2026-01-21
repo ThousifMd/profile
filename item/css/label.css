@@ -57,6 +57,16 @@
   padding: 2px 0;
   font-family: 'Archivo Black', sans-serif;
   font-size: 12px;
+}
+
+/* Metric title row with spacing for primary metrics */
+.metric-title-row {
+  display: inline;
+}
+
+.metric-value-inline {
+  margin-left: 12px;
+  white-space: nowrap;
   line-height: 11px;
 }
 
@@ -1323,6 +1333,70 @@ input[type=number]::-webkit-outer-spin-button {
   color: #94a3b8;
 }
 
+/* Dark mode for eco-badge label in wrapper */
+.dark .product-label-wrapper .eco-badge-label {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.dark .product-label-wrapper .eco-badge-label .product-name {
+  color: #f1f5f9;
+}
+
+.dark .product-label-wrapper .eco-badge-label .declared-unit {
+  color: #94a3b8;
+}
+
+.dark .product-label-wrapper .eco-badge-label .eco-breakdown {
+  background: #0f172a;
+  border: 1px solid #334155;
+}
+
+.dark .product-label-wrapper .eco-badge-label .eco-metric {
+  border-color: #334155;
+}
+
+.dark .product-label-wrapper .eco-badge-label .metric-name {
+  color: #cbd5e1;
+}
+
+.dark .product-label-wrapper .eco-badge-label .metric-value {
+  color: #f1f5f9;
+}
+
+.dark .product-label-wrapper .eco-badge-label .submetrics {
+  border-color: #334155;
+}
+
+.dark .product-label-wrapper .eco-badge-label .submetric-name {
+  color: #94a3b8;
+}
+
+.dark .product-label-wrapper .eco-badge-label .submetric-value {
+  color: #cbd5e1;
+}
+
+.dark .product-label-wrapper .eco-badge-label .eco-composition {
+  background: #0f172a;
+  border: 1px solid #334155;
+}
+
+.dark .product-label-wrapper .eco-badge-label .composition-title {
+  color: #f1f5f9;
+}
+
+.dark .product-label-wrapper .eco-badge-label .material-name {
+  color: #cbd5e1;
+}
+
+.dark .product-label-wrapper .eco-badge-label .material-percent {
+  color: #94a3b8;
+}
+
+.dark .product-label-wrapper .eco-badge-label .material-bar-wrapper {
+  background: #334155;
+}
+
 /* ============================================
    Food Category Sidebar Dark Mode
    ============================================ */
@@ -1956,11 +2030,9 @@ input[type=number]::-webkit-outer-spin-button {
   display: block;
 }
 
+/* Tooltip container - displays on next line inline */
 .info-tooltip {
   display: none;
-  position: relative;
-  margin-top: 8px;
-  margin-left: -130px;
   background: #1e293b;
   color: #f1f5f9;
   padding: 10px 14px;
@@ -1972,6 +2044,7 @@ input[type=number]::-webkit-outer-spin-button {
   max-width: 90vw;
   z-index: 1000;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  margin-top: 8px;
 }
 
 /* Arrow pointing UP at the info icon */
@@ -1979,8 +2052,7 @@ input[type=number]::-webkit-outer-spin-button {
   content: '';
   position: absolute;
   bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 20px;
   border: 8px solid transparent;
   border-bottom-color: #1e293b;
 }
@@ -1988,6 +2060,10 @@ input[type=number]::-webkit-outer-spin-button {
 /* Show tooltip when info-icon has active class */
 .info-icon.active .info-tooltip {
   display: block;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 12px;
 }
 
 /* Z-Score Indicator */
@@ -2181,21 +2257,22 @@ input[type=number]::-webkit-outer-spin-button {
   border: 1px solid #475569;
 }
 
-/* Dark mode arrow with border effect - uses layered pseudo-element technique */
+/* Dark mode arrow with border effect - layered pseudo-elements */
 .dark .info-tooltip::before {
   border-bottom-color: #0f172a;
+  z-index: 2;
 }
 
-/* Arrow border in dark mode - outer arrow for border effect */
+/* Arrow border in dark mode - outer arrow creates border effect */
 .dark .info-tooltip::after {
   content: '';
   position: absolute;
   bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 20px;
   border: 10px solid transparent;
   border-bottom-color: #475569;
   margin-bottom: 1px;
+  z-index: 1;
 }
 
 .dark .zscore-indicator {
@@ -2252,6 +2329,76 @@ input[type=number]::-webkit-outer-spin-button {
 
 .dark .chart-percentile-badge {
   background: #1d4ed8;
+}
+
+/* Product and region list rows */
+.file-row,
+.region-row,
+.category-row {
+  padding: 8px;
+  margin: 4px 0;
+  cursor: pointer;
+  border-radius: 4px;
+  background: #f5f5f5;
+  transition: background 0.2s;
+}
+
+.file-row:hover,
+.region-row:hover,
+.category-row:hover {
+  background: #e0e0e0;
+}
+
+.dark .file-row,
+.dark .region-row,
+.dark .category-row {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+.dark .file-row:hover,
+.dark .region-row:hover,
+.dark .category-row:hover {
+  background: #334155;
+}
+
+/* Country dropdown styling */
+#country-dropdown {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+}
+
+#country-dropdown:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+#country-dropdown:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.dark #country-dropdown {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.dark #country-dropdown:hover {
+  background: #334155;
+  border-color: #64748b;
+}
+
+.dark #country-dropdown:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
 }
 
 /* Responsive adjustments */

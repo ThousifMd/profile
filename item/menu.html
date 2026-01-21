@@ -62,6 +62,17 @@ loadMenu();
   color: white;
   font-weight: bold;
 }
+.dark .category-item {
+  background: #334155;
+  color: #f1f5f9;
+}
+.dark .category-item:hover {
+  background: #475569;
+}
+.dark .category-item.active {
+  background: #4CAF50;
+  color: white;
+}
 
 /* 2-level menu styles */
 #food-category-sidebar {
@@ -71,16 +82,17 @@ loadMenu();
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+.dark #food-category-sidebar {
+  background: #1e293b;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
 .category-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   margin-bottom: 8px;
 }
 
 .category-title {
-  flex: 1;
+  width: 100%;
   background-color: #f9f9f9;
   padding: 10px 12px;
   border: 1px solid #ddd;
@@ -91,6 +103,9 @@ loadMenu();
   transition: all 0.3s;
   text-align: left;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .category-title:hover {
@@ -104,23 +119,20 @@ loadMenu();
   border-color: #4CAF50;
 }
 
-.category-arrow {
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  background-color: #f9f9f9;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  transition: all 0.3s;
-  font-size: 12px;
+.dark .category-title {
+  background-color: #334155;
+  color: #f1f5f9;
+  border-color: #475569;
 }
 
-.category-arrow:hover {
-  background-color: #e8f5e9;
+.dark .category-title:hover {
+  background-color: #475569;
+  border-color: #4CAF50;
+}
+
+.dark .category-title.active {
+  background-color: #4CAF50;
+  color: white;
   border-color: #4CAF50;
 }
 
@@ -129,6 +141,7 @@ loadMenu();
   transition: transform 0.3s;
   width: 16px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .toggle-arrow.open {
@@ -146,6 +159,10 @@ loadMenu();
 
 .subcategory-list.open {
   display: block;
+}
+
+.dark .subcategory-list {
+  border-left-color: #475569;
 }
 
 .subcategory-item {
@@ -167,6 +184,15 @@ loadMenu();
   background-color: #f0f0f0;
   color: #333;
   padding-left: 15px;
+}
+
+.dark .subcategory-link {
+  color: #cbd5e1;
+}
+
+.dark .subcategory-link:hover {
+  background-color: #475569;
+  color: #f1f5f9;
 }
 </style>
 

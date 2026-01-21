@@ -113,6 +113,7 @@ async function loadMenu() {
     const searchResultsContainer = document.getElementById("search-results-container");
     const menuContainer = document.getElementById("menu-container");
     const header = document.getElementById("page-header");
+    const sidebar = document.getElementById("food-category-sidebar");
 
     // Critical fix: DOM not ready when this runs on model.earth
     if (!header) {
@@ -120,18 +121,36 @@ async function loadMenu() {
         return;
     }
 
+    // Update selected country from hash
+    if (hash.country) {
+        selectedCountry = hash.country;
+    }
+
     if (hash.layout == "product") {
-        header.textContent = "Product Layout";
-        searchDiv.style.display = "none";
+        header.textContent = "Product Environmental Impact";
+        addUSDASearchBar(); // Show search bar with country dropdown
+        searchDiv.style.display = "block";
         searchResultsContainer.style.display = "none";
         menuContainer.style.display = "none";
-        await loadProductList();
-        if (hash.country && hash.id) {
+
+        // Show categories or specific product
+        if (!hash.id) {
+            // No specific product ID - show product categories
+            loadProductCategorySidebar();
+            const productContainer = document.getElementById("product-container");
+            const productLabel = document.getElementById("product-label");
+            if (productContainer) productContainer.style.display = "none";
+            if (productLabel) productLabel.innerHTML = "";
+        } else if (hash.country && hash.id) {
+            // Has product ID - load specific product
+            if (sidebar) sidebar.style.display = "none";
             await loadProductByCountryAndId(hash.country, hash.id);
         }
         return;
     }
 
+    // Food view (no layout parameter)
+    header.textContent = "Nutritious Meal Planner";
     addUSDASearchBar();
     loadFoodCategorySidebar();
     loadSampleFood();
@@ -156,7 +175,110 @@ const FOOD_CATEGORIES = [
     { name: "Fast Foods", query: "Fast Foods" }
 ];
 
+const PRODUCT_CATEGORIES = {
+    US: [
+        {
+            name: "Structural Materials",
+            subcategories: ["Cement", "Ready_Mix", "Flowable_Concrete_Fill", "Autoclaved_Aerated_Concrete",
+                          "Brick", "Supplementary_Cementitious_Materials", "Cast_Decks_and_Underlayment", "Aggregates"]
+        },
+        {
+            name: "Metals",
+            subcategories: ["Aluminium", "Aluminium_Extrusions", "Aluminium_Billets", "Aluminium_Sheet_Goods",
+                          "Aluminium_Suspension_Assemblies", "Steel", "Coil_Steel"]
+        },
+        {
+            name: "Flooring",
+            subcategories: ["Carpet", "Resilient_Flooring", "Ceramic_Tile", "Other_Flooring"]
+        },
+        {
+            name: "Wall Systems",
+            subcategories: ["Gypsum_Board", "Cement_Board", "Fiber-cement_Siding", "Insulated_Wall_Panels"]
+        },
+        {
+            name: "Ceilings",
+            subcategories: ["Acoustical_Ceilings", "Ceiling_Panels"]
+        },
+        {
+            name: "Insulation",
+            subcategories: ["Blanket", "Blown", "Board", "Mechanical_Insulation"]
+        },
+        {
+            name: "Roofing",
+            subcategories: ["Bituminous_Roofing", "Asphalt"]
+        },
+        {
+            name: "Glass & Glazing",
+            subcategories: ["Flat_Glass_Panes", "Processed_Non-insulating_Glass_Panes"]
+        },
+        {
+            name: "Doors & Openings",
+            subcategories: ["Metal_Doors_and_Frames"]
+        },
+        {
+            name: "Coatings & Protection",
+            subcategories: ["Paint_By_Area", "Paint_By_Mass", "Applied_Fireproofing",
+                          "Dampproofing_And_Waterproofing", "Grouting"]
+        },
+        {
+            name: "Mechanical & Plumbing",
+            subcategories: ["Utility_Piping", "Water_Closets", "Other_Plumbing_Fixtures", "Elevators"]
+        },
+        {
+            name: "Other Products",
+            subcategories: ["Tables", "Clothing", "Food_Beverage"]
+        }
+    ],
+    IN: [
+        {
+            name: "Structural Materials",
+            subcategories: ["Cement", "Ready_Mix", "Flowable_Concrete_Fill", "Brick"]
+        },
+        {
+            name: "Metals",
+            subcategories: ["Aluminium", "Aluminium_Billets", "Aluminium_Sheet_Goods", "Steel", "Coil_Steel"]
+        },
+        {
+            name: "Flooring",
+            subcategories: ["Carpet", "Resilient_Flooring", "Other_Flooring"]
+        },
+        {
+            name: "Wall Systems",
+            subcategories: ["Gypsum_Board", "Cement_Board", "Fiber-cement_Siding", "Insulated_Wall_Panels"]
+        },
+        {
+            name: "Ceilings",
+            subcategories: ["Acoustical_Ceilings"]
+        },
+        {
+            name: "Insulation",
+            subcategories: ["Mechanical_Insulation"]
+        },
+        {
+            name: "Glass & Glazing",
+            subcategories: ["Flat_Glass_Panes", "Processed_Non-insulating_Glass_Panes"]
+        },
+        {
+            name: "Doors & Openings",
+            subcategories: ["Metal_Doors_and_Frames"]
+        },
+        {
+            name: "Coatings & Protection",
+            subcategories: ["Paint_By_Area", "Paint_By_Mass", "Dampproofing_And_Waterproofing", "Grouting"]
+        },
+        {
+            name: "Mechanical & Plumbing",
+            subcategories: ["Utility_Piping", "Water_Closets", "Other_Plumbing_Fixtures", "Elevators"]
+        },
+        {
+            name: "Consumer Products",
+            subcategories: ["Tables", "Clothing", "Food_Beverage"]
+        }
+    ]
+};
+
 let selectedCategory = null;
+let selectedCountry = "US"; // Default country
 
 function loadFoodCategorySidebar() {
     const sidebar = document.getElementById("food-category-sidebar");
@@ -182,6 +304,89 @@ function loadFoodCategorySidebar() {
     });
 }
 
+function loadProductCategorySidebar() {
+    const sidebar = document.getElementById("food-category-sidebar");
+    const categoryList = document.getElementById("category-list");
+
+    if (!sidebar || !categoryList) return;
+
+    sidebar.style.display = "block";
+    const sidebarTitle = sidebar.querySelector("h3");
+    if (sidebarTitle) {
+        sidebarTitle.textContent = "Product Categories";
+    }
+
+    categoryList.innerHTML = "";
+
+    const categories = PRODUCT_CATEGORIES[selectedCountry] || PRODUCT_CATEGORIES.US;
+
+    categories.forEach((category, index) => {
+        // Create category container
+        const categoryContainer = document.createElement("div");
+        categoryContainer.style.marginBottom = "8px";
+
+        // Create category header with title containing arrow
+        const categoryHeader = document.createElement("div");
+        categoryHeader.className = "category-header";
+
+        // Category title button with arrow inside
+        const categoryTitle = document.createElement("div");
+        categoryTitle.className = "category-title";
+        categoryTitle.innerHTML = `<span class="toggle-arrow">▶</span> ${category.name}`;
+        categoryTitle.dataset.categoryName = category.name;
+        categoryTitle.dataset.index = index;
+
+        const subcategoryList = document.createElement("ul");
+        subcategoryList.className = "subcategory-list";
+        subcategoryList.style.display = "none";
+
+        // Click title to toggle submenu
+        categoryTitle.onclick = function(e) {
+            e.stopPropagation();
+            const arrow = categoryTitle.querySelector(".toggle-arrow");
+            const isOpen = subcategoryList.style.display === "block";
+
+            if (isOpen) {
+                subcategoryList.style.display = "none";
+                arrow.classList.remove("open");
+                categoryTitle.classList.remove("active");
+            } else {
+                subcategoryList.style.display = "block";
+                arrow.classList.add("open");
+                categoryTitle.classList.add("active");
+            }
+        };
+
+        categoryHeader.appendChild(categoryTitle);
+        categoryContainer.appendChild(categoryHeader);
+
+        // Create subcategory list
+        if (category.subcategories && category.subcategories.length > 0) {
+            category.subcategories.forEach(subcatName => {
+                const subcatItem = document.createElement("li");
+                subcatItem.className = "subcategory-item";
+
+                const subcatLink = document.createElement("a");
+                subcatLink.className = "subcategory-link";
+                subcatLink.textContent = subcatName.replace(/_/g, " ");
+                subcatLink.dataset.subcategoryName = subcatName;
+
+                subcatLink.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectProductSubcategory(selectedCountry, subcatName);
+                };
+
+                subcatItem.appendChild(subcatLink);
+                subcategoryList.appendChild(subcatItem);
+            });
+        }
+
+        categoryContainer.appendChild(subcategoryList);
+        categoryList.appendChild(categoryContainer);
+    });
+}
+
 function selectFoodCategory(category, element) {
     // Remove active class from all categories
     document.querySelectorAll(".category-item").forEach(item => {
@@ -202,9 +407,74 @@ function selectFoodCategory(category, element) {
     }
 }
 
+async function selectProductSubcategory(country, subcategoryName) {
+    const container = document.getElementById("product-label");
+    if (!container) return;
+
+    container.innerHTML = `<h3>Loading ${subcategoryName.replace(/_/g, " ")} products...</h3>`;
+
+    try {
+        const files = await fetchJSON(`${API_BASE}/${country}/${subcategoryName}`);
+        const yamlFiles = files.filter(x => x.type === "file" && x.name.endsWith(".yaml"));
+
+        if (yamlFiles.length === 0) {
+            container.innerHTML = `<p>No products found in ${subcategoryName.replace(/_/g, " ")}</p>`;
+            return;
+        }
+
+        container.innerHTML = `<h3>${subcategoryName.replace(/_/g, " ")} (${yamlFiles.length} products)</h3>`;
+
+        const listContainer = document.createElement("div");
+        listContainer.style.marginTop = "1em";
+
+        yamlFiles.forEach(file => {
+            const id = file.name.replace(".yaml", "");
+            const row = document.createElement("div");
+            row.className = "file-row";
+            row.textContent = id;
+
+            row.onclick = () => {
+                // Update URL hash
+                if (typeof goHash === "function") {
+                    goHash({
+                        layout: "product",
+                        country: country,
+                        id: id
+                    });
+                } else if (typeof updateHash === "function") {
+                    updateHash({
+                        layout: "product",
+                        country: country,
+                        id: id
+                    }, true);
+                }
+
+                // Load the product
+                loadYAMLProfile(country, subcategoryName, file);
+            };
+
+            listContainer.appendChild(row);
+        });
+
+        container.appendChild(listContainer);
+    } catch (error) {
+        console.error("Error loading subcategory:", error);
+        container.innerHTML = `<p>Error loading products. Please try again.</p>`;
+    }
+}
+
 function searchUSDAFoodByCategory(categoryQuery) {
     const apiKey = "bLecediTVa2sWd8AegmUZ9o7DxYFSYoef9B4i1Ml";
-    const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}&query=${encodeURIComponent(categoryQuery)}&pageSize=20&pageNumber=1`;
+
+    // Add country-specific search terms
+    let searchQuery = categoryQuery;
+    if (selectedCountry === "IN") {
+        searchQuery = categoryQuery + " India";
+    } else if (selectedCountry === "US") {
+        searchQuery = categoryQuery + " American";
+    }
+
+    const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}&query=${encodeURIComponent(searchQuery)}&pageSize=20&pageNumber=1`;
 
     const container = document.getElementById("search-results-container");
     container.innerHTML = "<h3>Loading...</h3>";
@@ -567,18 +837,50 @@ function loadSampleFood() {
 
 function addUSDASearchBar() {
     let searchDiv = document.getElementById("usda-search-div");
-    if (searchDiv && !searchDiv.innerHTML.trim()) {
+    if (!searchDiv) return;
+
+    if (!searchDiv.innerHTML.trim()) {
+        const hash = (typeof getHash === "function") ? getHash() : getUrlHash();
+        const isProductView = hash.layout === "product";
+        const placeholder = isProductView ? "Search Products" : "Search USDA Food Database";
+
         searchDiv.style.marginBottom = "1em";
         searchDiv.innerHTML = `
-            <input type="text" id="usda-search-input" placeholder="Search USDA Food Database" style="width:300px;">
+            <select id="country-dropdown" style="margin-right: 10px;">
+                <option value="US" ${selectedCountry === 'US' ? 'selected' : ''}>America</option>
+                <option value="IN" ${selectedCountry === 'IN' ? 'selected' : ''}>India</option>
+            </select>
+            <input type="text" id="usda-search-input" placeholder="${placeholder}" style="width:300px;">
             <button id="usda-search-button">Search</button>
             <button id="usda-clear-button">Clear Results</button>
         `;
+
+        // Add country dropdown change handler
+        const countryDropdown = document.getElementById("country-dropdown");
+        if (countryDropdown) {
+            countryDropdown.addEventListener("change", function() {
+                selectedCountry = this.value;
+                // Update hash with new country
+                if (typeof goHash === "function") {
+                    goHash({ country: selectedCountry });
+                } else if (typeof updateHash === "function") {
+                    updateHash({ country: selectedCountry }, true);
+                }
+            });
+        }
     }
+
+    // Event listeners for search functionality
     document.addEventListener('click', (e) => {
         if (e.target && e.target.id === 'usda-search-button') {
             const query = document.getElementById("usda-search-input").value.trim();
-            searchUSDAFood(query);
+            const hash = (typeof getHash === "function") ? getHash() : getUrlHash();
+            if (hash.layout === "product") {
+                // Product search - not implemented yet
+                console.log("Product search not yet implemented");
+            } else {
+                searchUSDAFood(query);
+            }
         }
         if (e.target && e.target.id === 'usda-clear-button') {
             clearSearchResults();
@@ -594,7 +896,16 @@ function addUSDASearchBar() {
 
 function searchUSDAFood(query = "apple") {
     const apiKey = "bLecediTVa2sWd8AegmUZ9o7DxYFSYoef9B4i1Ml";
-    const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}&query=${encodeURIComponent(query)}&pageSize=10&pageNumber=1`;
+
+    // Add country-specific search terms
+    let searchQuery = query;
+    if (selectedCountry === "IN") {
+        searchQuery = query + " India";
+    } else if (selectedCountry === "US") {
+        searchQuery = query + " American";
+    }
+
+    const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}&query=${encodeURIComponent(searchQuery)}&pageSize=10&pageNumber=1`;
     fetch(apiUrl)
         .then(response => response.json())
         .then(data => {
@@ -602,7 +913,7 @@ function searchUSDAFood(query = "apple") {
                 searchResults = data.foods;
                 displaySearchResults();
             } else {
-                console.log('No foods found for query:', query);
+                console.log('No foods found for query:', searchQuery);
                 clearSearchResults();
             }
         })

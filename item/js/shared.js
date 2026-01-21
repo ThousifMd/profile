@@ -212,7 +212,7 @@ function createSettingsToggle(containerId, onChange) {
                 </span>
                 <div class="style-toggle">
                     <button class="style-btn ${settings.style === 'fda' ? 'active' : ''}" data-style="fda">
-                        <span class="btn-icon">\u2630</span> FDA Facts
+                        <span class="btn-icon">\u2630</span> Facts Label
                     </button>
                     <button class="style-btn ${settings.style === 'badge' ? 'active' : ''}" data-style="badge">
                         <span class="btn-icon">\ud83c\udf3f</span> Eco Badge
@@ -284,6 +284,46 @@ function createCalculatorUnitDropdown(defaultUnit, onChange) {
     });
 
     return wrapper;
+}
+
+// ============================================
+// Info Icon Click Handler (Global Event Delegation)
+// ============================================
+
+function initInfoIconHandlers() {
+    // Use event delegation for dynamically created info icons
+    document.addEventListener('click', function(e) {
+        const infoIcon = e.target.closest('.info-icon');
+
+        if (infoIcon) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // If this icon is already active, close it
+            if (infoIcon.classList.contains('active')) {
+                infoIcon.classList.remove('active');
+            } else {
+                // Close all other open tooltips
+                document.querySelectorAll('.info-icon.active').forEach(icon => {
+                    icon.classList.remove('active');
+                });
+                // Open this tooltip
+                infoIcon.classList.add('active');
+            }
+        } else {
+            // Click outside - close all tooltips
+            document.querySelectorAll('.info-icon.active').forEach(icon => {
+                icon.classList.remove('active');
+            });
+        }
+    });
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initInfoIconHandlers);
+} else {
+    initInfoIconHandlers();
 }
 
 // ============================================
