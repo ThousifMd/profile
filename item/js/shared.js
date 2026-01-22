@@ -349,13 +349,39 @@ function getUrlHash() {
 // GitHub API Utilities
 // ============================================
 
+function getShortUrlName(url) {
+    try {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/').filter(p => p);
+        const shortPath = pathParts.slice(0, 2).join('/');
+        return `${urlObj.hostname}/${shortPath}${pathParts.length > 2 ? '/...' : ''}`;
+    } catch (e) {
+        // If URL parsing fails, just return the url as-is
+        return url;
+    }
+}
+
 async function fetchJSON(url) {
     const r = await fetch(url);
+    if (!r.ok) {
+        const error = new Error(`HTTP error ${r.status}: ${r.statusText}`);
+        error.status = r.status;
+        error.statusText = r.statusText;
+        error.url = url;
+        throw error;
+    }
     return r.json();
 }
 
 async function fetchText(url) {
     const r = await fetch(url);
+    if (!r.ok) {
+        const error = new Error(`HTTP error ${r.status}: ${r.statusText}`);
+        error.status = r.status;
+        error.statusText = r.statusText;
+        error.url = url;
+        throw error;
+    }
     return r.text();
 }
 
@@ -384,6 +410,7 @@ if (typeof module !== 'undefined' && module.exports) {
         createSettingsToggle,
         createCalculatorUnitDropdown,
         getUrlHash,
+        getShortUrlName,
         fetchJSON,
         fetchText,
         dailyValueReferences,

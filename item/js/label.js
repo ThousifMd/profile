@@ -113,7 +113,7 @@ async function loadMenu() {
     const searchResultsContainer = document.getElementById("search-results-container");
     const menuContainer = document.getElementById("menu-container");
     const header = document.getElementById("page-header");
-    const sidebar = document.getElementById("food-category-sidebar");
+    const sidebar = document.getElementById("category-sidebar");
 
     // Critical fix: DOM not ready when this runs on model.earth
     if (!header) {
@@ -135,14 +135,15 @@ async function loadMenu() {
 
         // Show categories or specific product
         if (!hash.id) {
-            // No specific product ID - show product categories
+            // No specific product ID - show product categories and sidebar
             loadProductCategorySidebar();
+            if (sidebar) sidebar.style.display = "block";
             const productContainer = document.getElementById("product-container");
             const productLabel = document.getElementById("product-label");
             if (productContainer) productContainer.style.display = "none";
             if (productLabel) productLabel.innerHTML = "";
         } else if (hash.country && hash.id) {
-            // Has product ID - load specific product
+            // Has product ID - load specific product and hide sidebar
             if (sidebar) sidebar.style.display = "none";
             await loadProductByCountryAndId(hash.country, hash.id);
         }
@@ -423,12 +424,11 @@ let selectedCategory = null;
 let selectedCountry = "US"; // Default country
 
 function loadFoodCategorySidebar() {
-    const sidebar = document.getElementById("food-category-sidebar");
+    const sidebar = document.getElementById("category-sidebar");
     const categoryList = document.getElementById("category-list");
 
     if (!sidebar || !categoryList) return;
 
-    sidebar.style.display = "block";
     const sidebarTitle = sidebar.querySelector("h3");
     if (sidebarTitle) {
         sidebarTitle.textContent = "Food Categories";
@@ -519,12 +519,11 @@ function loadFoodCategorySidebar() {
 }
 
 function loadProductCategorySidebar() {
-    const sidebar = document.getElementById("food-category-sidebar");
+    const sidebar = document.getElementById("category-sidebar");
     const categoryList = document.getElementById("category-list");
 
     if (!sidebar || !categoryList) return;
 
-    sidebar.style.display = "block";
     const sidebarTitle = sidebar.querySelector("h3");
     if (sidebarTitle) {
         sidebarTitle.textContent = "Product Categories";
@@ -631,7 +630,7 @@ async function selectProductSubcategory(country, subcategoryName) {
     container.innerHTML = `<h3>Loading ${subcategoryName.replace(/_/g, " ")} products...</h3>`;
 
     try {
-        const files = await fetchJSON(`${API_BASE}/${country}/${subcategoryName}`);
+        const files = await fetchJSONWithAuth(`${API_BASE}/${country}/${subcategoryName}`);
         const yamlFiles = files.filter(x => x.type === "file" && x.name.endsWith(".yaml"));
 
         if (yamlFiles.length === 0) {
@@ -676,7 +675,37 @@ async function selectProductSubcategory(country, subcategoryName) {
         container.appendChild(listContainer);
     } catch (error) {
         console.error("Error loading subcategory:", error);
-        container.innerHTML = `<p>Error loading products. Please try again.</p>`;
+        let errorDetails = error.message || "Unknown error";
+        let urlLink = '';
+        let githubInfo = '';
+
+        if (error.url) {
+            const shortName = getShortUrlName(error.url);
+            urlLink = `<p><strong>Endpoint:</strong> <a href="${error.url}" target="_blank">${shortName}</a></p>`;
+        }
+
+        // Add GitHub API specific guidance
+        if (error.isGitHubAPI) {
+            githubInfo = `
+                <p style="margin-top: 15px;"><strong>GitHub API Access:</strong></p>
+                <p>This error occurred while fetching the product list from GitHub's API. ${error.hasToken ? 'A GitHub token was used but may be invalid or expired.' : 'No GitHub token found in browser cache.'}</p>
+                <p>To improve API rate limits and avoid errors, set your GitHub token on:</p>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                    <li><a href="/projects/hub/" target="_blank">Project Hub</a></li>
+                    <li><a href="/team/projects/#list=modelteam&showrepos=true" target="_blank">Team Project Repos</a></li>
+                </ul>
+            `;
+        }
+
+        container.innerHTML = `
+            <div class="error-message-container">
+                <h3>Error Loading Products</h3>
+                <p><strong>Reason:</strong> ${errorDetails}</p>
+                ${urlLink}
+                ${githubInfo}
+                <p style="margin-bottom: 0;"><em>Please try again or check your connection.</em></p>
+            </div>
+        `;
     }
 }
 
@@ -697,7 +726,14 @@ function searchUSDAFoodByCategory(categoryQuery) {
     container.innerHTML = "<h3>Loading...</h3>";
 
     fetch(apiUrl)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                const error = new Error(`HTTP error ${response.status}: ${response.statusText}`);
+                error.url = apiUrl;
+                throw error;
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.foods && data.foods.length > 0) {
                 searchResults = data.foods;
@@ -708,7 +744,20 @@ function searchUSDAFoodByCategory(categoryQuery) {
         })
         .catch(error => {
             console.error('Error fetching USDA data:', error);
-            container.innerHTML = `<p>Error loading foods. Please try again.</p>`;
+            let errorDetails = error.message || "Unknown error";
+            let urlLink = '';
+            if (error.url) {
+                const shortName = getShortUrlName(error.url);
+                urlLink = `<p><strong>Endpoint:</strong> <a href="${error.url}" target="_blank">${shortName}</a></p>`;
+            }
+            container.innerHTML = `
+                <div class="error-message-container">
+                    <h3>Error Loading Foods</h3>
+                    <p><strong>Reason:</strong> ${errorDetails}</p>
+                    ${urlLink}
+                    <p style="margin-bottom: 0;"><em>Please try again or check your connection.</em></p>
+                </div>
+            `;
         });
 }
 
@@ -748,6 +797,44 @@ function displayCategoryResults(categoryName) {
 }
 
 const API_BASE = "https://api.github.com/repos/ModelEarth/products-data/contents";
+const RAW_BASE = "https://raw.githubusercontent.com/ModelEarth/products-data/refs/heads/main";
+
+// Helper function to construct raw GitHub URL
+function getRawGitHubUrl(country, category, filename) {
+    return `${RAW_BASE}/${country}/${category}/${filename}`;
+}
+
+// Helper function to get GitHub token from localStorage
+function getGitHubToken() {
+    try {
+        // Check common storage keys used by project pages
+        return localStorage.getItem('githubToken') ||
+               localStorage.getItem('github_token') ||
+               localStorage.getItem('gitToken') ||
+               null;
+    } catch (e) {
+        console.warn('Could not access localStorage for GitHub token:', e);
+        return null;
+    }
+}
+
+// Helper function to fetch JSON with optional GitHub token
+async function fetchJSONWithAuth(url) {
+    const token = getGitHubToken();
+    const headers = token ? { 'Authorization': `token ${token}` } : {};
+
+    const r = await fetch(url, { headers });
+    if (!r.ok) {
+        const error = new Error(`HTTP error ${r.status}: ${r.statusText}`);
+        error.status = r.status;
+        error.statusText = r.statusText;
+        error.url = url;
+        error.isGitHubAPI = url.includes('api.github.com');
+        error.hasToken = !!token;
+        throw error;
+    }
+    return r.json();
+}
 
 async function loadProductList() {
     const container = document.getElementById("product-container");
@@ -755,7 +842,7 @@ async function loadProductList() {
 
     container.innerHTML = "<h3>Loading regions...</h3>";
 
-    const regions = await fetchJSON(API_BASE);
+    const regions = await fetchJSONWithAuth(API_BASE);
     container.innerHTML = "";
 
     regions.filter(x => x.type === "dir").forEach(region => {
@@ -771,7 +858,7 @@ async function loadCategories(region) {
     const container = document.getElementById("product-container");
     container.innerHTML = `<h3>${region}</h3>`;
 
-    const categories = await fetchJSON(`${API_BASE}/${region}`);
+    const categories = await fetchJSONWithAuth(`${API_BASE}/${region}`);
 
     categories.filter(x => x.type === "dir").forEach(cat => {
         const div = document.createElement("div");
@@ -786,7 +873,7 @@ async function loadItems(region, category) {
     const container = document.getElementById("product-container");
     container.innerHTML = `<h3>${region} / ${category}</h3>`;
 
-    const files = await fetchJSON(`${API_BASE}/${region}/${category}`);
+    const files = await fetchJSONWithAuth(`${API_BASE}/${region}/${category}`);
 
     files.filter(x => x.type === "file" && x.name.endsWith(".yaml")).forEach(file => {
         const id = file.name.replace(".yaml", "");  
@@ -816,10 +903,10 @@ async function loadItems(region, category) {
 
 async function loadProductByCountryAndId(region, id) {
     try {
-        const categories = await fetchJSON(`${API_BASE}/${region}`);
+        const categories = await fetchJSONWithAuth(`${API_BASE}/${region}`);
 
         for (const cat of categories.filter(x => x.type === "dir")) {
-            const files = await fetchJSON(`${API_BASE}/${region}/${cat.name}`);
+            const files = await fetchJSONWithAuth(`${API_BASE}/${region}/${cat.name}`);
             const match = files.find(
                 f => f.type === "file" && f.name.replace(".yaml", "") === id
             );
@@ -834,14 +921,50 @@ async function loadProductByCountryAndId(region, id) {
                 return;
             }
         }
-    } catch (e) {
-        console.log("Error loading product from hash:", e);
+    } catch (error) {
+        console.error("Error loading product from hash:", error);
+        const container = document.getElementById("product-label");
+        if (!container) return;
+
+        let errorDetails = error.message || "Unknown error";
+        let urlLink = '';
+        let githubInfo = '';
+
+        if (error.url) {
+            const shortName = getShortUrlName(error.url);
+            urlLink = `<p><strong>Endpoint:</strong> <a href="${error.url}" target="_blank">${shortName}</a></p>`;
+        }
+
+        // Add GitHub API specific guidance
+        if (error.isGitHubAPI) {
+            githubInfo = `
+                <p style="margin-top: 15px;"><strong>GitHub API Access:</strong></p>
+                <p>This error occurred while searching for the product in GitHub's API. ${error.hasToken ? 'A GitHub token was used but may be invalid or expired.' : 'No GitHub token found in browser cache.'}</p>
+                <p>To improve API rate limits and avoid errors, set your GitHub token on:</p>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                    <li><a href="/projects/hub/" target="_blank">Project Hub</a></li>
+                    <li><a href="/team/projects/#list=modelteam&showrepos=true" target="_blank">Team Project Repos</a></li>
+                </ul>
+            `;
+        }
+
+        container.innerHTML = `
+            <div class="error-message-container">
+                <h3>Error Loading Product</h3>
+                <p><strong>Reason:</strong> ${errorDetails}</p>
+                ${urlLink}
+                ${githubInfo}
+                <p style="margin-bottom: 0;"><em>Please try again or check your connection.</em></p>
+            </div>
+        `;
     }
 }
 
 
 async function loadYAMLProfile(region, category, file) {
-    const yamlText = await fetchText(file.download_url);
+    // Construct raw GitHub URL instead of using API download_url
+    const rawUrl = getRawGitHubUrl(region, category, file.name);
+    const yamlText = await fetchText(rawUrl);
     const data = jsyaml.load(yamlText);
 
     // Use the comprehensive profile object creator from layout-product.js
@@ -1026,12 +1149,38 @@ function setupTravelDistanceCalculator(epdData, parentEl) {
     });
 }
 
+function getShortUrlName(url) {
+    try {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/').filter(p => p);
+        const shortPath = pathParts.slice(0, 2).join('/');
+        return `${urlObj.hostname}/${shortPath}${pathParts.length > 2 ? '/...' : ''}`;
+    } catch (e) {
+        // If URL parsing fails, just return the url as-is
+        return url;
+    }
+}
+
 async function fetchJSON(url) {
     const r = await fetch(url);
+    if (!r.ok) {
+        const error = new Error(`HTTP error ${r.status}: ${r.statusText}`);
+        error.status = r.status;
+        error.statusText = r.statusText;
+        error.url = url;
+        throw error;
+    }
     return r.json();
 }
 async function fetchText(url) {
     const r = await fetch(url);
+    if (!r.ok) {
+        const error = new Error(`HTTP error ${r.status}: ${r.statusText}`);
+        error.status = r.status;
+        error.statusText = r.statusText;
+        error.url = url;
+        throw error;
+    }
     return r.text();
 }
 
@@ -1132,7 +1281,14 @@ function searchUSDAFood(query = "apple") {
 
     const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}&query=${encodeURIComponent(searchQuery)}&pageSize=10&pageNumber=1`;
     fetch(apiUrl)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                const error = new Error(`HTTP error ${response.status}: ${response.statusText}`);
+                error.url = apiUrl;
+                throw error;
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.foods && data.foods.length > 0) {
                 searchResults = data.foods;
@@ -1144,7 +1300,25 @@ function searchUSDAFood(query = "apple") {
         })
         .catch(error => {
             console.error('Error fetching USDA data:', error);
-            clearSearchResults();
+            const container = document.getElementById("search-results-container");
+            container.style.display = "";
+            let errorDetails = error.message || "Unknown error";
+            let urlLink = '';
+            if (error.url) {
+                const shortName = getShortUrlName(error.url);
+                urlLink = `<p><strong>Endpoint:</strong> <a href="${error.url}" target="_blank">${shortName}</a></p>`;
+            }
+            container.innerHTML = `
+                <div class="search-results-header">
+                    <h3>Search Error</h3>
+                    <button class="close-search-btn" onclick="closeSearchResults()" title="Close search results">&times;</button>
+                </div>
+                <div class="error-message-container">
+                    <p><strong>Reason:</strong> ${errorDetails}</p>
+                    ${urlLink}
+                    <p style="margin-bottom: 0;"><em>Please try again or check your connection.</em></p>
+                </div>
+            `;
         });
 }
 

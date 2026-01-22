@@ -24,9 +24,113 @@ function hashChangedMenu() {
   loadMenu();
 }
 loadMenu();
+
+function toggleCategorySidebar() {
+  const sidebar = document.getElementById("category-sidebar");
+  if (sidebar) {
+    if (sidebar.style.display === "none" || sidebar.style.display === "") {
+      // Showing sidebar - check which categories to load
+      let hash = (typeof getHash === "function") ? getHash() : getUrlHash();
+      if (hash.layout === "product") {
+        if (typeof loadProductCategorySidebar === "function") {
+          loadProductCategorySidebar();
+        }
+      } else {
+        if (typeof loadFoodCategorySidebar === "function") {
+          loadFoodCategorySidebar();
+        }
+      }
+      sidebar.style.display = "block";
+    } else {
+      sidebar.style.display = "none";
+    }
+  }
+}
 </script>
 
 <style>
+/* Menu toggle button */
+.menu-toggle-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 32px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.menu-toggle-btn:hover {
+  color: #333;
+}
+
+.menu-icon {
+  display: inline-block;
+  border: 1px solid #999;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin-top: -6px;
+  line-height: 1;
+}
+
+.menu-toggle-btn:hover .menu-icon {
+  border-color: #666;
+  background: #f0f0f0;
+}
+
+.dark .menu-toggle-btn {
+  color: #94a3b8;
+}
+
+.dark .menu-toggle-btn:hover {
+  color: #f1f5f9;
+}
+
+.dark .menu-icon {
+  border-color: #666;
+}
+
+.dark .menu-toggle-btn:hover .menu-icon {
+  border-color: #94a3b8;
+  background: #475569;
+}
+
+/* Close sidebar button */
+.close-sidebar-btn {
+  background: none;
+  border: none;
+  font-size: 32px;
+  line-height: 1;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.close-sidebar-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.dark .close-sidebar-btn {
+  color: #94a3b8;
+}
+
+.dark .close-sidebar-btn:hover {
+  background: #475569;
+  color: #f1f5f9;
+}
+
 .aggregate {
   float:right;
   min-width:260px;
@@ -74,14 +178,14 @@ loadMenu();
 }
 
 /* 2-level menu styles */
-#food-category-sidebar {
+#category-sidebar {
   background: white;
   padding: 15px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.dark #food-category-sidebar {
+.dark #category-sidebar {
   background: #1e293b;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
@@ -206,11 +310,19 @@ loadMarkdown("README.md", "readmeDiv", "_parent");
 
   <p>Toggle between <a href="">Nutrition Layout</a> and <a href="#layout=product">Product Layout</a></p>
 
-  <h1 id="page-header">Nutritious Meal Planner</h1>
+  <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+    <button id="menu-toggle-btn" class="menu-toggle-btn" onclick="toggleCategorySidebar()" title="Toggle categories menu">
+      <span class="menu-icon">☰</span>
+    </button>
+    <h1 id="page-header" style="margin: 0;">Nutritious Meal Planner</h1>
+  </div>
 
   <div style="overflow: auto;">
-    <div id="food-category-sidebar" style="float: left; width: 250px; margin-right: 20px; display: none;">
-      <h3 style="margin-top: 0;">Food Categories</h3>
+    <div id="category-sidebar" style="float: left; width: 250px; margin-right: 20px; display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin: 0;">Food Categories</h3>
+        <button class="close-sidebar-btn" onclick="toggleCategorySidebar()" title="Close categories menu">&times;</button>
+      </div>
       <div id="category-list"></div>
     </div>
     <div style="overflow: auto;">
