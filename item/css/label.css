@@ -186,19 +186,100 @@ input[type=number]::-webkit-outer-spin-button {
     padding: 2px;
 }
 
+/* Menu Layout Wrapper */
+.menu-layout-wrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    overflow: auto;
+}
+
+.menu-layout-wrapper .aggregate {
+    float: right;
+    min-width: 260px;
+    margin-left: 20px;
+}
+
+/* When search results are shown, create side-by-side layout */
+#menu-container {
+    overflow: auto;
+}
+
+/* Container for search results and menu layout side-by-side */
+.menu-with-search-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    align-items: flex-start;
+}
+
 /* Search Results Styling */
 #search-results-container {
-    float: left;
     width: 380px;
-    margin: 20px 20px 20px 0;
+    flex-shrink: 0;
+    margin: 0;
     padding: 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
 }
 
-#menu-container {
-    padding: 20px 0;
-    overflow:auto;
+/* Hide search container when empty */
+#search-results-container:empty {
+    display: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+/* When search results are shown, menu layout wrapper fills remaining space */
+.menu-layout-wrapper.has-search-results {
+    flex: 1;
+    min-width: 0;
+}
+
+.menu-layout-wrapper.has-search-results .aggregate {
+    float: none;
+    margin-left: 0;
+}
+
+.search-results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.search-results-header h3 {
+    margin: 0;
+    font-size: 1.2em;
+    flex: 1;
+}
+
+.close-search-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.close-search-btn:hover {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.close-search-btn:active {
+    background-color: #e0e0e0;
 }
 
 #search-results-container h3 {
@@ -276,12 +357,20 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .menu-label {
-  flex: 1 1 340px;         
+  flex: 1 1 340px;
   max-width: 340px;
   box-sizing: border-box;
-  margin: 10px;             
+  margin: 10px;
   position: relative;
   z-index: 0;
+}
+
+/* When in right column, make labels span full width */
+.all-menu-items.in-right-column .menu-label {
+  flex: 1 1 100%;
+  max-width: 100%;
+  width: 100%;
+  margin: 10px 0;
 }
 
 .quantity-controls {
@@ -312,11 +401,18 @@ input[type=number]::-webkit-outer-spin-button {
 .all-menu-items {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;             
+  gap: 18px;
   justify-content: flex-start;
   align-items: flex-start;
   padding: 10px;
   box-sizing: border-box;
+}
+
+/* When in right column (search results shown) */
+.all-menu-items.in-right-column {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  width: 100%;
 }
 
 #product-container h3 {
@@ -362,8 +458,44 @@ input[type=number]::-webkit-outer-spin-button {
   }
 }
 
-.dark #search-results-container, #usda-search-div {
+.dark #search-results-container,
+.dark #usda-search-div {
   border: 1px solid #666;
+  background: #1e293b;
+}
+
+.dark #search-results-container h3 {
+  color: #f1f5f9;
+}
+
+.dark .search-result-item {
+  border-color: #475569;
+  background: #334155;
+}
+
+.dark .search-result-item:hover {
+  background-color: #475569;
+}
+
+.dark .food-info strong {
+  color: #f1f5f9;
+}
+
+.dark .food-info small {
+  color: #cbd5e1;
+}
+
+.dark .close-search-btn {
+  color: #94a3b8;
+}
+
+.dark .close-search-btn:hover {
+  background-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark .close-search-btn:active {
+  background-color: #334155;
 }
 
 .dark #product-container th {

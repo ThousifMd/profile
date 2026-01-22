@@ -152,6 +152,8 @@ async function loadMenu() {
     // Food view (no layout parameter)
     header.textContent = "Nutritious Meal Planner";
     addUSDASearchBar();
+    if (searchResultsContainer) searchResultsContainer.style.display = "";
+    if (menuContainer) menuContainer.style.display = "";
     loadFoodCategorySidebar();
     loadSampleFood();
     displayInitialFoodItems();
@@ -712,7 +714,13 @@ function searchUSDAFoodByCategory(categoryQuery) {
 
 function displayCategoryResults(categoryName) {
     const container = document.getElementById("search-results-container");
-    container.innerHTML = `<h3>${categoryName} - Click to Add Item:</h3>`;
+    container.style.display = "";
+    container.innerHTML = `
+        <div class="search-results-header">
+            <h3>${categoryName} - Click to Add Item:</h3>
+            <button class="close-search-btn" onclick="closeSearchResults()" title="Close search results">&times;</button>
+        </div>
+    `;
 
     searchResults.forEach((food, index) => {
         const resultDiv = document.createElement("div");
@@ -723,7 +731,7 @@ function displayCategoryResults(categoryName) {
                 <br><small>Brand: ${food.brandOwner || 'Generic'}</small>
                 <br><small>Category: ${food.foodCategory || 'N/A'}</small>
             </div>
-            <button class="add-to-menu-btn" data-index="${index}">Add Item</button>
+            <button class="add-to-menu-btn" data-index="${index}">Add</button>
         `;
         container.appendChild(resultDiv);
     });
@@ -735,6 +743,8 @@ function displayCategoryResults(categoryName) {
             addFoodToMenu(searchResults[index]);
         };
     });
+
+    updateMenuLayout();
 }
 
 const API_BASE = "https://api.github.com/repos/ModelEarth/products-data/contents";
@@ -1140,7 +1150,13 @@ function searchUSDAFood(query = "apple") {
 
 function displaySearchResults() {
     const container = document.getElementById("search-results-container");
-    container.innerHTML = "<h3>Search Results - Click to Add Item:</h3>";
+    container.style.display = "";
+    container.innerHTML = `
+        <div class="search-results-header">
+            <h3>Search Results - Click to Add Item:</h3>
+            <button class="close-search-btn" onclick="closeSearchResults()" title="Close search results">&times;</button>
+        </div>
+    `;
 
     searchResults.forEach((food, index) => {
         const resultDiv = document.createElement("div");
@@ -1151,7 +1167,7 @@ function displaySearchResults() {
                 <br><small>Brand: ${food.brandOwner || 'Generic'}</small>
                 <br><small>Category: ${food.foodCategory || 'N/A'}</small>
             </div>
-            <button class="add-to-menu-btn" data-index="${index}">Add Item</button>
+            <button class="add-to-menu-btn" data-index="${index}">Add</button>
         `;
         container.appendChild(resultDiv);
     });
@@ -1163,12 +1179,15 @@ function displaySearchResults() {
             addFoodToMenu(searchResults[index]);
         };
     });
+
+    updateMenuLayout();
 }
 
 function clearSearchResults() {
     const container = document.getElementById("search-results-container");
     container.innerHTML = "";
     displayInitialFoodItems();
+    updateMenuLayout();
 }
 
 function displayInitialFoodItems() {
@@ -1187,7 +1206,13 @@ function displayInitialFoodItems() {
 
     const container = document.getElementById("search-results-container");
     if (container) {
-        container.innerHTML = "<h3>Popular Foods - Click to Add Item:</h3>";
+        container.style.display = "";
+        container.innerHTML = `
+            <div class="search-results-header">
+                <h3>Popular Foods - Click to Add Item:</h3>
+                <button class="close-search-btn" onclick="closeSearchResults()" title="Close search results">&times;</button>
+            </div>
+        `;
 
         initialFoods.forEach((food, index) => {
             const resultDiv = document.createElement("div");
@@ -1210,6 +1235,8 @@ function displayInitialFoodItems() {
                 searchUSDAFood(initialFoods[index].description);
             };
         });
+
+        updateMenuLayout();
     }
 }
 
@@ -1340,6 +1367,40 @@ function usdaProfileObject(usdaItem) {
     };
 }
 
+function closeSearchResults() {
+    const searchContainer = document.getElementById("search-results-container");
+    if (searchContainer) {
+        searchContainer.style.display = "none";
+    }
+    updateMenuLayout();
+}
+
+function updateMenuLayout() {
+    const searchContainer = document.getElementById("search-results-container");
+    const layoutWrapper = document.querySelector(".menu-layout-wrapper");
+    const allMenuItems = document.querySelector(".all-menu-items");
+
+    if (!searchContainer || !layoutWrapper) return;
+
+    // Check if search results container is visible and has content
+    const hasSearchResults = searchContainer.style.display !== "none" &&
+                            searchContainer.innerHTML.trim() !== "";
+
+    if (hasSearchResults) {
+        // Search results shown: apply column layout
+        layoutWrapper.classList.add("has-search-results");
+        if (allMenuItems) {
+            allMenuItems.classList.add("in-right-column");
+        }
+    } else {
+        // No search results: normal side-by-side layout
+        layoutWrapper.classList.remove("has-search-results");
+        if (allMenuItems) {
+            allMenuItems.classList.remove("in-right-column");
+        }
+    }
+}
+
 function renderMenuLabels() {
     const container = document.getElementById("menu-container");
     if (container) {
@@ -1361,10 +1422,29 @@ function renderMenuLabels() {
             }
         }
 
+        // Create wrapper for side-by-side layout of search results and menu
+        const menuWithSearchLayout = document.createElement("div");
+        menuWithSearchLayout.className = "menu-with-search-layout";
+
+        // Create or get search results container and add it to the wrapper
+        let searchResultsContainer = document.getElementById("search-results-container");
+        if (!searchResultsContainer) {
+            searchResultsContainer = document.createElement("div");
+            searchResultsContainer.id = "search-results-container";
+            searchResultsContainer.style.display = "none"; // Start hidden
+        }
+
+        // Add search results to wrapper
+        menuWithSearchLayout.appendChild(searchResultsContainer);
+
+        // Create layout wrapper for aggregate + all-menu-items
+        const layoutWrapper = document.createElement("div");
+        layoutWrapper.className = "menu-layout-wrapper";
+
         // Only show aggregate if there are menu items
         if (menuItems.length > 0) {
             updateAggregateProfile();
-            container.appendChild(renderNutritionLabel(aggregateProfile, 1, true));
+            layoutWrapper.appendChild(renderNutritionLabel(aggregateProfile, 1, true));
         }
 
         // Create a single container div for all menu items
@@ -1442,10 +1522,19 @@ function renderMenuLabels() {
           });
           
 
-        // Add the container with all items to the main container
+        // Add all items container to layout wrapper
         if (menuItems.length > 0) {
-            container.appendChild(allItemsContainer);
+            layoutWrapper.appendChild(allItemsContainer);
         }
+
+        // Add layout wrapper to the menu-with-search wrapper
+        menuWithSearchLayout.appendChild(layoutWrapper);
+
+        // Append the complete wrapper to main container
+        container.appendChild(menuWithSearchLayout);
+
+        // Check if search results are shown and update layout class
+        updateMenuLayout();
 
 // FIXED: Event listeners for quantity controls - re-render entire menu
 container.querySelectorAll(".quantity-input").forEach(input => {
