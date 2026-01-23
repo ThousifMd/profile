@@ -22,8 +22,36 @@ document.addEventListener('hashChangeEvent', hashChangedMenu, false);
 function hashChangedMenu() {
   console.log("Profile hash changed");
   loadMenu();
+  updateYAMLSourceLink();
 }
 loadMenu();
+
+// Wait for DOM to be ready before trying to update the link
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', updateYAMLSourceLink);
+} else {
+  updateYAMLSourceLink();
+}
+
+function updateYAMLSourceLink() {
+  const link = document.getElementById('yaml-source-link');
+  if (!link) return;
+
+  const hash = (typeof getHash === "function") ? getHash() : getUrlHash();
+
+  // Only show link if we have all required parameters
+  if (hash.layout === "product" && hash.country && hash.cat && hash.id) {
+    // GitHub web view URL for better formatting
+    const githubBase = "https://github.com/ModelEarth/products-data/blob/main";
+    const yamlUrl = `${githubBase}/${hash.country}/${hash.cat}/${hash.id}.yaml`;
+    link.href = yamlUrl;
+    link.style.display = 'inline';
+    console.log("YAML Source link:", yamlUrl);
+  } else {
+    link.style.display = 'none';
+    console.log("YAML Source hidden - missing params:", hash);
+  }
+}
 
 function toggleCategorySidebar() {
   const sidebar = document.getElementById("category-sidebar");
@@ -334,7 +362,7 @@ function toggleCategorySidebar() {
 
   <br>
   <hr>
-  <p><a href="index.html">About Profiles</a></p>
+  <p><a href="about">About Profiles</a> | <a href="#" id="yaml-source-link" target="_blank" style="display: none;">YAML Source</a></p>
 
 </div>
 </body>

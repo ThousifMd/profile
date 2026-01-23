@@ -244,15 +244,25 @@ input[type=number]::-webkit-outer-spin-button {
     width: 100%;
 }
 
-/* When search results are shown, menu layout wrapper fills remaining space */
+/* When search results are shown, menu layout wrapper fills remaining space and stacks vertically */
 .menu-layout-wrapper.has-search-results {
     flex: 1;
     min-width: 0;
+    flex-direction: column;
 }
 
 .menu-layout-wrapper.has-search-results .aggregate {
     float: none;
     margin-left: 0;
+    width: 100%;
+}
+
+/* Make menu labels stack vertically and span full width when search results are shown */
+.menu-layout-wrapper.has-search-results .menu-label {
+    flex: 1 1 100%;
+    max-width: 100%;
+    width: 100%;
+    margin: 10px 0;
 }
 
 .search-results-header {

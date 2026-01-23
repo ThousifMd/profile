@@ -12,7 +12,6 @@ if (typeof jsyaml === "undefined") {
 }
 
 let searchResults = []; // Store current search results
-let hasSampleItem = false; // Track if sample item is present
 
 document.addEventListener("DOMContentLoaded", loadMenu);
 
@@ -41,7 +40,6 @@ function parseNumeric(value) {
 //         loadProductList();
 //     } else {
 //         addUSDASearchBar();
-//         loadSampleFood();
 //         displayInitialFoodItems();
 //     }
 // }
@@ -1247,31 +1245,6 @@ async function fetchText(url) {
     return r.text();
 }
 
-
-function loadSampleFood() {
-    // Add a sample food item (apple) to show the user how it works
-    const sampleFood = {
-        description: "Apples, raw, with skin (Sample)",
-        brandOwner: null,
-        foodCategory: "Fruits and Fruit Juices",
-        foodNutrients: [
-            { nutrientName: "Energy", value: 52, unitName: "KCAL" },
-            { nutrientName: "Total lipid (fat)", value: 0.17, unitName: "G" },
-            { nutrientName: "Carbohydrate, by difference", value: 13.81, unitName: "G" },
-            { nutrientName: "Fiber, total dietary", value: 2.4, unitName: "G" },
-            { nutrientName: "Total Sugars", value: 10.39, unitName: "G" },
-            { nutrientName: "Protein", value: 0.26, unitName: "G" },
-            { nutrientName: "Sodium, Na", value: 1, unitName: "MG" },
-            { nutrientName: "Potassium, K", value: 107, unitName: "MG" },
-            { nutrientName: "Calcium, Ca", value: 6, unitName: "MG" },
-            { nutrientName: "Iron, Fe", value: 0.12, unitName: "MG" }
-        ]
-    };
-
-    addFoodToMenu(sampleFood);
-    hasSampleItem = true; // Mark that we have a sample item
-}
-
 function addUSDASearchBar() {
     let searchDiv = document.getElementById("search-div");
     if (!searchDiv) return;
@@ -1435,7 +1408,6 @@ function clearSearchResults() {
 
 function displayInitialFoodItems() {
     const initialFoods = [
-        { description: "Apples, raw (Example)", brandOwner: null, foodCategory: "Fruits and Fruit Juices", isSample: true },
         { description: "Bananas, raw", brandOwner: null, foodCategory: "Fruits and Fruit Juices" },
         { description: "Chicken breast, boneless, skinless, raw", brandOwner: null, foodCategory: "Poultry Products" },
         { description: "Broccoli, raw", brandOwner: null, foodCategory: "Vegetables and Vegetable Products" },
@@ -1477,13 +1449,7 @@ function displayInitialFoodItems() {
             button.onclick = function() {
                 const index = parseInt(button.dataset.index);
                 const food = initialFoods[index];
-
-                // If it's the sample apple, load the sample directly
-                if (food.isSample) {
-                    loadSampleFood();
-                } else {
-                    searchUSDAFood(food.description);
-                }
+                searchUSDAFood(food.description);
             };
         });
 
@@ -1492,11 +1458,6 @@ function displayInitialFoodItems() {
 }
 
 function addFoodToMenu(food) {
-    // If this is the first real food item being added and we have a sample, remove the sample
-    if (hasSampleItem && !food.description.includes("(Sample)")) {
-        menuItems = []; // Clear sample item
-        hasSampleItem = false;
-    }
 
     // Check if food is already in menu
     const existingIndex = menuItems.findIndex(item =>
@@ -1655,6 +1616,11 @@ function updateMenuLayout() {
 function renderMenuLabels() {
     const container = document.getElementById("menu-container");
     if (container) {
+        // Preserve search results container's display state before clearing
+        let existingSearchContainer = document.getElementById("search-results-container");
+        let searchContainerWasVisible = existingSearchContainer && existingSearchContainer.style.display !== "none";
+        let searchContainerContent = existingSearchContainer ? existingSearchContainer.innerHTML : "";
+
         container.innerHTML = "";
 
         // Add settings toggle for food labels (only once at the top)
@@ -1682,7 +1648,14 @@ function renderMenuLabels() {
         if (!searchResultsContainer) {
             searchResultsContainer = document.createElement("div");
             searchResultsContainer.id = "search-results-container";
-            searchResultsContainer.style.display = "none"; // Start hidden
+            // Restore previous display state, or hide if it's the very first time
+            if (searchContainerWasVisible) {
+                searchResultsContainer.style.display = "block";
+            } else {
+                searchResultsContainer.style.display = "none";
+            }
+            // Restore previous content
+            searchResultsContainer.innerHTML = searchContainerContent;
         }
 
         // Add search results to wrapper
@@ -1692,12 +1665,6 @@ function renderMenuLabels() {
         const layoutWrapper = document.createElement("div");
         layoutWrapper.className = "menu-layout-wrapper";
 
-        // Only show aggregate if there are menu items
-        if (menuItems.length > 0) {
-            updateAggregateProfile();
-            layoutWrapper.appendChild(renderNutritionLabel(aggregateProfile, 1, true));
-        }
-
         // Create a single container div for all menu items
         const allItemsContainer = document.createElement("div");
         allItemsContainer.classList.add("all-menu-items");
@@ -1705,7 +1672,7 @@ function renderMenuLabels() {
         menuItems.forEach((item, idx) => {
             const itemDiv = document.createElement("div");
             itemDiv.classList.add("menu-label");
-          
+
             // Create collapsible header
             const header = document.createElement("div");
             header.classList.add("collapsible-header");
@@ -1728,20 +1695,20 @@ function renderMenuLabels() {
   </div>
 `;
 
-          
+
             // Create collapsible content
             const content = document.createElement("div");
             content.classList.add("collapsible-content");
             content.appendChild(renderNutritionLabel(item.profileObject, item.quantity, false, idx));
-          
+
             // Click toggle behavior
             header.addEventListener("click", (e) => {
                 // Prevent clicks on quantity input or remove button from toggling collapse
                 if (e.target.closest(".quantity-input") || e.target.closest(".remove-item-btn")) return;
-            
+
                 const arrow = header.querySelector(".arrow");
                 const expanded = content.classList.contains("open");
-            
+
                 if (expanded) {
                     content.classList.remove("open");
                     content.style.display = "none";
@@ -1752,10 +1719,10 @@ function renderMenuLabels() {
                     arrow.textContent = "▲";
                 }
             });
-            
-              
-            
-          
+
+
+
+
             itemDiv.appendChild(header);
             itemDiv.appendChild(content);
             allItemsContainer.appendChild(itemDiv);
@@ -1771,11 +1738,17 @@ function renderMenuLabels() {
                 header.querySelector(".arrow").textContent = "▼";
               }
           });
-          
 
-        // Add all items container to layout wrapper
+
+        // Add all items container to layout wrapper FIRST
         if (menuItems.length > 0) {
             layoutWrapper.appendChild(allItemsContainer);
+        }
+
+        // Add aggregate label AFTER all-menu-items
+        if (menuItems.length > 0) {
+            updateAggregateProfile();
+            layoutWrapper.appendChild(renderNutritionLabel(aggregateProfile, 1, true));
         }
 
         // Add layout wrapper to the menu-with-search wrapper
@@ -2272,7 +2245,7 @@ function updateNutritionLabel(quantity) {
 // Parse the source data into the desired structure
 let profileObject = {};
 
-function loadProfile() {
+async function loadProfile() {
     let hash = getUrlHash();
     let labelType = "food";
     let whichLayout = "js/layout-nutrition.js";
@@ -2287,42 +2260,47 @@ function loadProfile() {
     removeElement('/profile/item/js/layout-nutrition.js'); // Resides in localsite/js/localsite.js
     removeElement('/profile/item/js/layout-product.js');
 
-    loadScript(whichLayout, function(results) {
+    loadScript(whichLayout, async function(results) {
         let sourceData = {};
-        // TO DO: Load these from API or file
+
         if (labelType == "product") {
-            // https://github.com/ModelEarth/io/blob/main/template/product/product-nodashes.yaml
-            sourceData = {
-                itemName: 'Sample Product',
-                id: "ec3yznau",
-                ref: "https://openepd.buildingtransparency.org/api/epds/EC3YZNAU",
-                doctype: "OpenEPD",
-                version: null,
-                language: "en",
-                valueGlobalWarmingPotential: 445 ,
-                ghgunits: "kg CO2 eq"
-                /*
-                private: false,
-                program_operator_doc_id: "9BD4F9CB-3584-4D34-90F8-B6E40B69653D",
-                program_operator_version: null,
-                third_party_verification_url: null,
-                date_of_issue: '2019-01-28T00:00:00Z',
-                valid_until: '2024-01-28T00:00:00Z',
-                kg_C_per_declared_unit: null,
-                product_name: DM0115CA,
-                product_sku: null,
-                product_description: "DOT MINOR 3/4 15FA 3-5SL AIR",
-                product_image_small: null,
-                product_image: null,
-                product_service_life_years: null,
-                applicable_in: null,
-                product_usage_description: null,
-                product_usage_image: null,
-                manufacturing_description: null,
-                manufacturing_image: null,
-                compliance: []
-                */
-            };
+            // Load YAML from GitHub if hash parameters are present
+            if (hash.country && hash.cat && hash.id) {
+                try {
+                    const rawBase = "https://raw.githubusercontent.com/ModelEarth/products-data/refs/heads/main";
+                    const yamlUrl = `${rawBase}/${hash.country}/${hash.cat}/${hash.id}.yaml`;
+                    console.log("Loading product YAML from:", yamlUrl);
+
+                    const yamlText = await fetchText(yamlUrl);
+                    sourceData = jsyaml.load(yamlText);
+                    console.log("Loaded YAML data:", sourceData);
+                } catch (error) {
+                    console.error("Error loading YAML:", error);
+                    // Fall back to default sample if YAML fails to load
+                    sourceData = {
+                        itemName: 'Sample Product (YAML load failed)',
+                        id: "sample",
+                        gwp: 10,
+                        error: error.message
+                    };
+                }
+            } else {
+                // Default sample when no hash parameters
+                // Example: https://raw.githubusercontent.com/ModelEarth/products-data/refs/heads/main/US/Acoustical_Ceilings/61a3d3f6469b4e9baa9da7605650a63d.yaml
+                try {
+                    const sampleUrl = "https://raw.githubusercontent.com/ModelEarth/products-data/refs/heads/main/US/Acoustical_Ceilings/61a3d3f6469b4e9baa9da7605650a63d.yaml";
+                    console.log("Loading default sample YAML from:", sampleUrl);
+                    const yamlText = await fetchText(sampleUrl);
+                    sourceData = jsyaml.load(yamlText);
+                    console.log("Loaded sample YAML data:", sourceData);
+                } catch (error) {
+                    console.error("Error loading sample YAML:", error);
+                    sourceData = {
+                        itemName: 'Sample Product (sample YAML load failed)',
+                        error: error.message
+                    };
+                }
+            }
         }
 
         if (labelType == "food") {
