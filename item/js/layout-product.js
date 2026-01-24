@@ -3,6 +3,83 @@
 // and structures the data for display in label-product.js
 
 // ============================================
+// Image Extraction
+// ============================================
+
+function getPriorityImage(data) {
+    // Priority array for image selection
+    const priorityPaths = ['image', 'manufacturer.image'];
+
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+
+    function isImageUrl(value) {
+        if (typeof value !== 'string') return false;
+        const lowerValue = value.toLowerCase();
+        return imageExtensions.some(ext => lowerValue.endsWith(ext)) ||
+               lowerValue.startsWith('http') && imageExtensions.some(ext => lowerValue.includes(ext));
+    }
+
+    // First, try to find images at priority paths
+    for (const priorityPath of priorityPaths) {
+        const parts = priorityPath.split('.');
+        let value = data;
+
+        // Navigate through the path
+        for (const part of parts) {
+            if (value && typeof value === 'object') {
+                value = value[part];
+            } else {
+                value = null;
+                break;
+            }
+        }
+
+        // If we found a valid image URL, return it with its path
+        if (value && typeof value === 'string' && isImageUrl(value)) {
+            return { url: value, path: priorityPath };
+        }
+    }
+
+    // If no priority image found, search for the first image in the data
+    function searchForFirstImage(obj, depth = 0, path = '') {
+        if (depth > 3 || !obj || typeof obj !== 'object') return null;
+
+        for (const [key, value] of Object.entries(obj)) {
+            const keyLower = key.toLowerCase();
+            const currentPath = path ? `${path}.${key}` : key;
+
+            // Check if key contains "image" or "img"
+            if (keyLower.includes('image') || keyLower.includes('img')) {
+                if (typeof value === 'string' && value && isImageUrl(value)) {
+                    return { url: value, path: currentPath };
+                } else if (Array.isArray(value)) {
+                    for (let i = 0; i < value.length; i++) {
+                        if (typeof value[i] === 'string' && value[i] && isImageUrl(value[i])) {
+                            return { url: value[i], path: `${currentPath}[${i}]` };
+                        }
+                    }
+                }
+            }
+
+            // Check if value looks like an image URL (by extension)
+            if (isImageUrl(value)) {
+                return { url: value, path: currentPath };
+            }
+
+            // Recursively search nested objects
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                const found = searchForFirstImage(value, depth + 1, currentPath);
+                if (found) return found;
+            }
+        }
+
+        return null;
+    }
+
+    return searchForFirstImage(data);
+}
+
+// ============================================
 // Main Profile Object Creator
 // ============================================
 
@@ -13,6 +90,11 @@ function createProductProfileObject(sourceData) {
     // Extract declared unit
     const declaredUnit = extractDeclaredUnit(sourceData);
 
+    // Extract category
+    const category = sourceData.category_name ||
+                    (sourceData.category && sourceData.category.name) ||
+                    sourceData.openepd_name?.split('>>')[0]?.trim() || "";
+
     // Build sections array with all available metrics
     const sections = buildProductSections(sourceData);
 
@@ -21,6 +103,9 @@ function createProductProfileObject(sourceData) {
 
     // Extract percentile data
     const percentiles = extractPercentiles(sourceData);
+
+    // Extract priority image
+    const priorityImage = getPriorityImage(sourceData);
 
     // Raw data for calculators
     const rawData = {
@@ -34,9 +119,11 @@ function createProductProfileObject(sourceData) {
     return {
         itemName,
         declaredUnit,
+        category,
         sections,
         composition,
         percentiles,
+        priorityImage,
         rawData
     };
 }
@@ -487,6 +574,7 @@ if (typeof module !== 'undefined' && module.exports) {
         extractDeclaredUnit,
         buildProductSections,
         extractComposition,
-        extractPercentiles
+        extractPercentiles,
+        getPriorityImage
     };
 }

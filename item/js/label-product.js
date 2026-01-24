@@ -122,10 +122,32 @@ function renderProductLabel(profileObject, quantity = 1, options = {}) {
     const style = options.style || settings.style;
     const verbosity = options.verbosity || settings.verbosity;
 
-    if (style === "badge") {
-        return renderProductBadgeStyle(profileObject, quantity, verbosity);
+    // Create wrapper div for image + label
+    const wrapper = document.createElement("div");
+    wrapper.className = "product-label-wrapper";
+
+    // Add priority image circle if available
+    if (profileObject.priorityImage) {
+        const imageCircle = document.createElement("div");
+        imageCircle.className = "product-image-circle";
+        const img = document.createElement("img");
+        img.src = profileObject.priorityImage.url;
+        img.alt = "Product image";
+        img.onerror = function() {
+            imageCircle.style.display = 'none';
+        };
+        imageCircle.appendChild(img);
+        wrapper.appendChild(imageCircle);
     }
-    return renderProductFDAStyle(profileObject, quantity, verbosity);
+
+    // Add the label
+    if (style === "badge") {
+        wrapper.appendChild(renderProductBadgeStyle(profileObject, quantity, verbosity));
+    } else {
+        wrapper.appendChild(renderProductFDAStyle(profileObject, quantity, verbosity));
+    }
+
+    return wrapper;
 }
 
 // ============================================
@@ -137,12 +159,12 @@ function renderProductFDAStyle(profileObject, quantity = 1, verbosity = "medium"
     div.className = "nutrition-label product-label fda-style";
 
     const declaredUnit = profileObject.declaredUnit || "unit";
+    const category = profileObject.category || "";
+    const categoryLink = category ? `<a href="#layout=product&cat=${category}" class="category-link">${category.replace(/_/g, ' ')}</a>` : "";
 
     // Header
     div.innerHTML = `
-        <div class="label-header">
-            <div class="label-title">Environmental Impact Facts</div>
-        </div>
+        ${categoryLink ? `<div class="category-header">${categoryLink}</div>` : ''}
         <div class="item-label-header">
             <div class="item-name">${profileObject.itemName || "Product"}</div>
         </div>
@@ -204,9 +226,11 @@ function renderFDASection(section, quantity) {
             <span class="metric-title-row">
                 ${isPrimary ? '<strong>' : ''}${section.name}${isPrimary ? '</strong>' : ''}
                 ${tooltip}
-                <span class="metric-value-inline">${formattedVal}${unit}</span>
             </span>
-            <span class="daily-value">${percentOfAvg ? percentOfAvg + '%*' : ''}</span>
+            <span class="metric-values-right">
+                <span class="metric-value-inline">${formattedVal}${unit}</span>
+                ${percentOfAvg ? `<span class="daily-value">${percentOfAvg}%*</span>` : ''}
+            </span>
         </div>
     `;
 
@@ -222,8 +246,10 @@ function renderFDASection(section, quantity) {
             subDiv.className = "sub-section";
             subDiv.innerHTML = `
                 <span>${subsection.name}</span>
-                <span class="value">${subFormattedVal}${subUnit}</span>
-                <span class="daily-value">${subPercent ? subPercent + '%*' : ''}</span>
+                <span class="metric-values-right">
+                    <span class="value">${subFormattedVal}${subUnit}</span>
+                    ${subPercent ? `<span class="daily-value">${subPercent}%*</span>` : ''}
+                </span>
             `;
             sectionDiv.appendChild(subDiv);
         });
@@ -241,6 +267,8 @@ function renderProductBadgeStyle(profileObject, quantity = 1, verbosity = "mediu
     div.className = "eco-badge-label product-label badge-style";
 
     const declaredUnit = profileObject.declaredUnit || "unit";
+    const category = profileObject.category || "";
+    const categoryLink = category ? `<a href="#layout=product&cat=${category}" class="category-link">${category.replace(/_/g, ' ')}</a>` : "";
 
     // Get primary GWP for the main badge
     const primaryGWP = profileObject.sections.find(s =>
@@ -249,13 +277,15 @@ function renderProductBadgeStyle(profileObject, quantity = 1, verbosity = "mediu
     const gwpValue = primaryGWP ? primaryGWP.value * quantity : 0;
     const rating = getImpactRating(gwpValue, "gwp");
 
-    // Header with eco score badge
+    // Header with product name above eco score badge
     div.innerHTML = `
-        <div class="eco-badge-header">
+        ${categoryLink ? `<div class="category-header">${categoryLink}</div>` : ''}
+        <div class="eco-badge-header-vertical">
             <div class="product-info">
                 <div class="product-name">${profileObject.itemName || "Product"}</div>
                 <div class="declared-unit">Per ${quantity > 1 ? quantity + " " : ""}${declaredUnit}</div>
             </div>
+            <hr class="badge-divider">
             <div class="eco-score-badge" style="background-color: ${rating.color}">
                 <div class="score-value">${formatValue(gwpValue, "gwp", 1)}</div>
                 <div class="score-unit">kgCO2e</div>
@@ -736,7 +766,15 @@ function renderCategoryBreadcrumb(data) {
 
     div.innerHTML = parts.map((part, i) => {
         const isLast = i === parts.length - 1;
-        return `<span class="breadcrumb-item ${isLast ? 'current' : ''}">${part}</span>`;
+        const isCategory = (i === 0 && categoryName && part === cleanText(categoryName));
+
+        if (isCategory && !isLast) {
+            // Make category a link
+            const catValue = categoryName.replace(/\s+/g, '_');
+            return `<a href="#layout=product&cat=${catValue}" class="breadcrumb-item breadcrumb-link">${part}</a>`;
+        } else {
+            return `<span class="breadcrumb-item ${isLast ? 'current' : ''}">${part}</span>`;
+        }
     }).join('<span class="breadcrumb-sep">\u203a</span>');
 
     return div;
@@ -749,7 +787,7 @@ function renderCategoryBreadcrumb(data) {
 function createInfoIcon(tooltipText, tooltipId) {
     const id = tooltipId || 'tooltip-' + Math.random().toString(36).substr(2, 9);
     return `<span class="info-icon" data-tooltip-id="${id}" aria-label="More information">
-        <span class="material-icons-outlined" style="font-size: 18px;">info</span>
+        <span class="info-icon-symbol">ⓘ</span>
         <span class="info-tooltip" id="${id}">${tooltipText}</span>
     </span>`;
 }
@@ -1450,7 +1488,65 @@ function renderCertifications(data) {
 // Product Description
 // ============================================
 
-function renderProductDescription(data) {
+function extractImagesFromData(data) {
+    const images = [];
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+
+    function isImageUrl(value) {
+        if (typeof value !== 'string') return false;
+        const lowerValue = value.toLowerCase();
+        return imageExtensions.some(ext => lowerValue.endsWith(ext)) ||
+               lowerValue.startsWith('http') && imageExtensions.some(ext => lowerValue.includes(ext));
+    }
+
+    function searchForImages(obj, depth = 0, path = '') {
+        if (depth > 3 || !obj || typeof obj !== 'object') return;
+
+        for (const [key, value] of Object.entries(obj)) {
+            const keyLower = key.toLowerCase();
+            const currentPath = path ? `${path}.${key}` : key;
+
+            // Check if key contains "image" or "img"
+            if (keyLower.includes('image') || keyLower.includes('img')) {
+                if (typeof value === 'string' && value) {
+                    images.push({ url: value, path: currentPath });
+                } else if (Array.isArray(value)) {
+                    value.forEach((v, index) => {
+                        if (typeof v === 'string' && v) {
+                            images.push({ url: v, path: `${currentPath}[${index}]` });
+                        }
+                    });
+                }
+            }
+
+            // Check if value looks like an image URL (by extension)
+            if (isImageUrl(value)) {
+                images.push({ url: value, path: currentPath });
+            }
+
+            // Recursively search nested objects
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                searchForImages(value, depth + 1, currentPath);
+            }
+        }
+    }
+
+    searchForImages(data);
+
+    // Remove duplicates based on URL
+    const uniqueImages = [];
+    const seenUrls = new Set();
+    for (const img of images) {
+        if (!seenUrls.has(img.url)) {
+            seenUrls.add(img.url);
+            uniqueImages.push(img);
+        }
+    }
+
+    return uniqueImages;
+}
+
+function renderProductDescription(data, priorityImageUrl = null) {
     const div = document.createElement("div");
     div.className = "product-description-section";
 
@@ -1458,21 +1554,90 @@ function renderProductDescription(data) {
     const manufacturer = cleanText(data.manufacturer?.name || data.mfr?.name || data.manufacturer_name || "");
     const brand = cleanText(data.brand || data.brand_name || "");
 
-    // Always render the section (for additional properties)
+    // Extract all images from data
+    let allImages = extractImagesFromData(data);
+
+    // Filter out the priority image if it exists
+    if (priorityImageUrl) {
+        allImages = allImages.filter(img => img.url !== priorityImageUrl);
+    }
+
+    // Build content HTML
+    let contentHTML = '';
+
+    // Manufacturer info
+    if (manufacturer || brand) {
+        contentHTML += '<div class="manufacturer-info">';
+        if (manufacturer) contentHTML += `<span class="mfr-name">${manufacturer}</span>`;
+        if (brand && brand !== manufacturer) contentHTML += `<span class="brand-name">${brand}</span>`;
+        contentHTML += '</div>';
+    }
+
+    // Description and images in flex layout
+    contentHTML += '<div class="description-content">';
+
+    // Left side: description text
+    if (description) {
+        contentHTML += `<div class="description-text-wrapper"><p class="description-text">${description}</p></div>`;
+    }
+
+    // Right side: single image with navigation (if images exist)
+    if (allImages.length > 0) {
+        const uniqueId = 'img-nav-' + Math.random().toString(36).substr(2, 9);
+        contentHTML += `
+            <div class="description-images-nav" id="${uniqueId}">
+                <div class="image-item" data-current-index="0">
+                    <img src="${allImages[0].url}" alt="Product image" class="description-image" onerror="this.style.display='none'">
+                    <div class="image-source">${allImages[0].path}</div>
+                </div>
+                ${allImages.length > 1 ? `
+                    <div class="image-nav-controls">
+                        <button class="image-nav-btn image-nav-prev" aria-label="Previous image">‹</button>
+                        <span class="image-counter">1 / ${allImages.length}</span>
+                        <button class="image-nav-btn image-nav-next" aria-label="Next image">›</button>
+                        <button class="view-gallery-btn" aria-label="View all images" title="View all images">⊞</button>
+                    </div>
+                ` : ''}
+            </div>`;
+    }
+
+    contentHTML += '</div>';
+
+    // Gallery view (initially hidden)
+    if (allImages.length > 0) {
+        // Include priority image at the beginning of gallery if it exists
+        const galleryImages = priorityImageUrl
+            ? [{ url: priorityImageUrl, path: 'priority_image' }, ...allImages]
+            : allImages;
+
+        contentHTML += `
+            <div class="image-gallery" style="display: none;">
+                <div class="gallery-header">
+                    <h5>Image Gallery (${galleryImages.length})</h5>
+                    <button class="close-gallery-btn" aria-label="Close gallery" title="Close gallery">✕</button>
+                </div>
+                <div class="gallery-grid">
+                    ${galleryImages.map(img => `
+                        <div class="gallery-item">
+                            <img src="${img.url}" alt="Product image" class="gallery-image" onerror="this.parentElement.style.display='none'">
+                            <div class="gallery-image-source">${img.path}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+    }
+
     div.innerHTML = `
         <div class="section-header">
             <h4>Product Details</h4>
         </div>
-        <div class="description-content">
-            ${manufacturer || brand ? `
-                <div class="manufacturer-info">
-                    ${manufacturer ? `<span class="mfr-name">${manufacturer}</span>` : ''}
-                    ${brand && brand !== manufacturer ? `<span class="brand-name">${brand}</span>` : ''}
-                </div>
-            ` : ''}
-            ${description ? `<p class="description-text">${description}</p>` : ''}
-        </div>
+        ${contentHTML}
     `;
+
+    // Setup image navigation after DOM insertion
+    setTimeout(() => {
+        setupImageNavigation(div, allImages);
+    }, 0);
 
     // Append additional properties inline at the bottom
     const additionalProps = renderAdditionalPropertiesInline(data);
@@ -1481,6 +1646,60 @@ function renderProductDescription(data) {
     }
 
     return div;
+}
+
+function setupImageNavigation(container, images) {
+    if (images.length <= 1) return;
+
+    const navContainer = container.querySelector('.description-images-nav');
+    const imageItem = navContainer?.querySelector('.image-item');
+    const prevBtn = navContainer?.querySelector('.image-nav-prev');
+    const nextBtn = navContainer?.querySelector('.image-nav-next');
+    const counter = navContainer?.querySelector('.image-counter');
+    const viewGalleryBtn = navContainer?.querySelector('.view-gallery-btn');
+    const gallery = container.querySelector('.image-gallery');
+    const closeGalleryBtn = container.querySelector('.close-gallery-btn');
+
+    if (!navContainer || !imageItem) return;
+
+    let currentIndex = 0;
+
+    function updateImage() {
+        const img = images[currentIndex];
+        imageItem.innerHTML = `
+            <img src="${img.url}" alt="Product image" class="description-image" onerror="this.style.display='none'">
+            <div class="image-source">${img.path}</div>
+        `;
+        if (counter) counter.textContent = `${currentIndex + 1} / ${images.length}`;
+    }
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + images.length) % images.length;
+            updateImage();
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % images.length;
+            updateImage();
+        });
+    }
+
+    if (viewGalleryBtn && gallery) {
+        viewGalleryBtn.addEventListener('click', () => {
+            gallery.style.display = 'block';
+            navContainer.style.display = 'none';
+        });
+    }
+
+    if (closeGalleryBtn && gallery) {
+        closeGalleryBtn.addEventListener('click', () => {
+            gallery.style.display = 'none';
+            navContainer.style.display = 'flex';
+        });
+    }
 }
 
 // ============================================
@@ -1643,8 +1862,12 @@ function renderProductDetailsPanel(data) {
 
     // Note: Breadcrumb is rendered at the top level in label.js, not here
 
+    // Get priority image URL to exclude from description images
+    const priorityImage = typeof getPriorityImage === "function" ? getPriorityImage(data) : null;
+    const priorityImageUrl = priorityImage ? priorityImage.url : null;
+
     // Product description
-    panel.appendChild(renderProductDescription(data));
+    panel.appendChild(renderProductDescription(data, priorityImageUrl));
 
     // Two-column layout for charts and locations
     const columnsDiv = document.createElement("div");
@@ -1679,8 +1902,12 @@ function renderProductDetailsPanelWithCalculators(data, profile) {
     const panel = document.createElement("div");
     panel.className = "product-details-panel";
 
+    // Get priority image URL to exclude from description images
+    const priorityImage = typeof getPriorityImage === "function" ? getPriorityImage(data) : null;
+    const priorityImageUrl = priorityImage ? priorityImage.url : null;
+
     // Product description
-    panel.appendChild(renderProductDescription(data));
+    panel.appendChild(renderProductDescription(data, priorityImageUrl));
 
     // Two-column layout
     const columnsDiv = document.createElement("div");
