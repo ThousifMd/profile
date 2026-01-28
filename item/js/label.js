@@ -14,6 +14,9 @@ if (typeof jsyaml === "undefined") {
 let searchResults = []; // Store current search results
 
 document.addEventListener("DOMContentLoaded", loadMenu);
+if (document.addEventListener) {
+    document.addEventListener("hashChangeEvent", loadMenu, false);
+}
 
 function parseNumeric(value) {
     if (typeof value === "number") return value;
@@ -115,7 +118,9 @@ async function loadMenu() {
 
     // Critical fix: DOM not ready when this runs on model.earth
     if (!header) {
-        setTimeout(loadMenu, 100);
+        if (typeof waitForElm === "function") {
+            waitForElm("#page-header").then(loadMenu);
+        }
         return;
     }
 
@@ -524,6 +529,7 @@ function loadFoodCategorySidebar() {
                 subcatLink.className = "subcategory-link";
                 subcatLink.textContent = subcat.name;
                 subcatLink.dataset.query = subcat.query;
+                subcatLink.href = "#";
 
                 subcatLink.onclick = function(e) {
                     e.preventDefault();
@@ -607,16 +613,7 @@ function loadProductCategorySidebar() {
                 subcatLink.textContent = subcatName.replace(/_/g, " ");
                 subcatLink.dataset.subcategoryName = subcatName;
 
-                subcatLink.onclick = function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Update hash with cat parameter
-                    if (typeof goHash === "function") {
-                        goHash({ cat: subcatName });
-                    } else if (typeof updateHash === "function") {
-                        updateHash({ cat: subcatName }, true);
-                    }
-                };
+                subcatLink.href = `#layout=product&country=${selectedCountry}&cat=${subcatName}`;
 
                 subcatItem.appendChild(subcatLink);
                 subcategoryList.appendChild(subcatItem);
@@ -701,15 +698,83 @@ async function selectProductSubcategory(country, subcategoryName) {
 
         const listContainer = document.createElement("div");
         listContainer.style.marginTop = "1em";
+        const listSourceUrl = `${API_BASE}/${country}/${subcategoryName}`;
 
+        const columns = ["name", "size"];
+
+        const table = document.createElement("table");
+        table.className = "product-file-table";
+
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        columns.forEach((key) => {
+            const th = document.createElement("th");
+            th.textContent = key;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
         yamlFiles.forEach(file => {
             const id = file.name.replace(".yaml", "");
-            const row = document.createElement("div");
+            const row = document.createElement("tr");
             row.className = "file-row";
-            row.textContent = id;
+
+            columns.forEach((key) => {
+                const td = document.createElement("td");
+                const value = file[key];
+
+                if (key === "name") {
+                    const nameLink = document.createElement("a");
+                    nameLink.href = `#layout=product&country=${country}&id=${id}`;
+                    nameLink.textContent = value || id;
+                    nameLink.addEventListener("click", (event) => {
+                        event.stopPropagation();
+                        if (typeof goHash === "function") {
+                            goHash({
+                                layout: "product",
+                                country: country,
+                                id: id
+                            });
+                        } else if (typeof updateHash === "function") {
+                            updateHash({
+                                layout: "product",
+                                country: country,
+                                id: id
+                            }, true);
+                        }
+                    });
+                    td.appendChild(nameLink);
+                } else if (key === "size") {
+                    const sizeValue = typeof value === "number" ? value : Number(value);
+                    if (Number.isFinite(sizeValue)) {
+                        td.textContent = `${(sizeValue / 1000).toFixed(1)} KB`;
+                    } else {
+                        td.textContent = "";
+                    }
+                } else if (typeof value === "string" && value.startsWith("http")) {
+                    const link = document.createElement("a");
+                    link.href = value;
+                    link.target = "_blank";
+                    link.rel = "noopener";
+                    link.textContent = value;
+                    link.addEventListener("click", (event) => {
+                        event.stopPropagation();
+                    });
+                    td.appendChild(link);
+                } else if (value === null || value === undefined) {
+                    td.textContent = "";
+                } else if (typeof value === "object") {
+                    td.textContent = JSON.stringify(value);
+                } else {
+                    td.textContent = String(value);
+                }
+
+                row.appendChild(td);
+            });
 
             row.onclick = () => {
-                // Update URL hash
                 if (typeof goHash === "function") {
                     goHash({
                         layout: "product",
@@ -724,12 +789,19 @@ async function selectProductSubcategory(country, subcategoryName) {
                     }, true);
                 }
 
-                // Load the product
                 loadYAMLProfile(country, subcategoryName, file);
             };
 
-            listContainer.appendChild(row);
+            tbody.appendChild(row);
         });
+
+        table.appendChild(tbody);
+        listContainer.appendChild(table);
+
+        const listSource = document.createElement("div");
+        listSource.className = "list-source";
+        listSource.innerHTML = `List Source: <a href="${listSourceUrl}" target="_blank" rel="noopener">${listSourceUrl}</a>`;
+        listContainer.appendChild(listSource);
 
         container.appendChild(listContainer);
     } catch (error) {

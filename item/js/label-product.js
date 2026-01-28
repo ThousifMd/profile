@@ -117,6 +117,27 @@ function formatOwnedBy(ownedBy, uniqueId) {
 // Product Label Rendering
 // ============================================
 
+let productImageGalleryList = null;
+let productImageResizeBound = false;
+
+function adjustProductImageRect(imageRect, img) {
+    if (!imageRect || !img || !img.naturalWidth || !img.naturalHeight) {
+        return;
+    }
+
+    const rectWidth = imageRect.getBoundingClientRect().width;
+    if (!rectWidth) {
+        requestAnimationFrame(() => adjustProductImageRect(imageRect, img));
+        return;
+    }
+
+    const ratio = img.naturalWidth / img.naturalHeight;
+    const maxHeight = rectWidth;
+    const desiredHeight = rectWidth / ratio;
+    const finalHeight = Math.min(maxHeight, desiredHeight);
+    imageRect.style.height = `${finalHeight}px`;
+}
+
 function renderProductLabel(profileObject, quantity = 1, options = {}) {
     const settings = typeof getLabelSettings === "function" ? getLabelSettings() : { style: "fda", verbosity: "medium" };
     const style = options.style || settings.style;
@@ -126,18 +147,54 @@ function renderProductLabel(profileObject, quantity = 1, options = {}) {
     const wrapper = document.createElement("div");
     wrapper.className = "product-label-wrapper";
 
-    // Add priority image circle if available
+    // Add priority image rectangle if available
     if (profileObject.priorityImage) {
-        const imageCircle = document.createElement("div");
-        imageCircle.className = "product-image-circle";
+        const imageRect = document.createElement("div");
+        imageRect.className = "product-image-rect";
+        const imageLink = document.createElement("a");
+        imageLink.href = profileObject.priorityImage.url;
+        imageLink.target = "_blank";
+        imageLink.rel = "noopener";
+        const imageOverlayBtn = document.createElement("button");
+        imageOverlayBtn.type = "button";
+        imageOverlayBtn.className = "product-image-rect-open";
+        imageOverlayBtn.setAttribute("aria-label", "Open image");
+        imageOverlayBtn.innerHTML = `<span class="material-icons">open_in_full</span>`;
         const img = document.createElement("img");
         img.src = profileObject.priorityImage.url;
         img.alt = "Product image";
-        img.onerror = function() {
-            imageCircle.style.display = 'none';
+        img.onload = function() {
+            adjustProductImageRect(imageRect, img);
+            if (!productImageResizeBound) {
+                productImageResizeBound = true;
+                window.addEventListener("resize", () => adjustProductImageRect(imageRect, img));
+            }
         };
-        imageCircle.appendChild(img);
-        wrapper.appendChild(imageCircle);
+        img.onerror = function() {
+            imageRect.style.display = 'none';
+        };
+        imageLink.addEventListener("click", function(event) {
+            event.preventDefault();
+            const fallbackList = profileObject.priorityImage ? [profileObject.priorityImage.url] : [];
+            const galleryList = Array.isArray(productImageGalleryList) && productImageGalleryList.length
+                ? productImageGalleryList
+                : fallbackList;
+            const startIndex = galleryList.indexOf(profileObject.priorityImage.url);
+            openProductImageModal(
+                profileObject.priorityImage.url,
+                galleryList,
+                Math.max(0, startIndex)
+            );
+        });
+        imageOverlayBtn.addEventListener("click", function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            imageLink.click();
+        });
+        imageLink.appendChild(img);
+        imageRect.appendChild(imageLink);
+        imageRect.appendChild(imageOverlayBtn);
+        wrapper.appendChild(imageRect);
     }
 
     // Add the label
@@ -148,6 +205,132 @@ function renderProductLabel(profileObject, quantity = 1, options = {}) {
     }
 
     return wrapper;
+}
+
+function ensureProductImageModal() {
+    let modal = document.getElementById("product-image-modal");
+    if (modal) {
+        return modal;
+    }
+
+    modal = document.createElement("div");
+    modal.id = "product-image-modal";
+    modal.className = "product-image-modal";
+    modal.innerHTML = `
+        <div class="product-image-modal-backdrop"></div>
+        <div class="product-image-modal-content" role="dialog" aria-modal="true" aria-label="Product image preview">
+            <button type="button" class="product-image-modal-close" aria-label="Close image">
+                <span class="material-icons">close</span>
+            </button>
+            <img class="product-image-modal-img" alt="Product image preview">
+            <div class="product-image-modal-nav" aria-hidden="true">
+                <button type="button" class="product-image-modal-prev" aria-label="Previous image">
+                    <span class="material-icons">chevron_left</span>
+                </button>
+                <span class="product-image-modal-counter">1 / 1</span>
+                <button type="button" class="product-image-modal-next" aria-label="Next image">
+                    <span class="material-icons">chevron_right</span>
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeButton = modal.querySelector(".product-image-modal-close");
+    const backdrop = modal.querySelector(".product-image-modal-backdrop");
+    const prevButton = modal.querySelector(".product-image-modal-prev");
+    const nextButton = modal.querySelector(".product-image-modal-next");
+
+    function closeModal() {
+        modal.classList.remove("active");
+        modal.setAttribute("aria-hidden", "true");
+    }
+
+    function stepImage(direction) {
+        if (!modal._imageList || modal._imageList.length <= 1) {
+            return;
+        }
+        const listLength = modal._imageList.length;
+        modal._imageIndex = (modal._imageIndex + direction + listLength) % listLength;
+        updateProductImageModal(modal);
+    }
+
+    closeButton.addEventListener("click", closeModal);
+    backdrop.addEventListener("click", closeModal);
+    prevButton.addEventListener("click", () => stepImage(-1));
+    nextButton.addEventListener("click", () => stepImage(1));
+
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape" && modal.classList.contains("active")) {
+            closeModal();
+        }
+        if (event.key === "ArrowLeft" && modal.classList.contains("active")) {
+            stepImage(-1);
+        }
+        if (event.key === "ArrowRight" && modal.classList.contains("active")) {
+            stepImage(1);
+        }
+    });
+
+    window.addEventListener("resize", () => {
+        if (modal.classList.contains("active")) {
+            adjustProductImageModalNav(modal);
+        }
+    });
+
+    modal.setAttribute("aria-hidden", "true");
+    return modal;
+}
+
+function adjustProductImageModalNav(modal) {
+    const image = modal.querySelector(".product-image-modal-img");
+    if (!image) {
+        return;
+    }
+
+    const rect = image.getBoundingClientRect();
+    const isSmall = rect.width < 400 || rect.height < 400;
+    modal.classList.toggle("nav-below", isSmall);
+}
+
+function updateProductImageModal(modal) {
+    const image = modal.querySelector(".product-image-modal-img");
+    const counter = modal.querySelector(".product-image-modal-counter");
+    const nav = modal.querySelector(".product-image-modal-nav");
+    const list = modal._imageList || [];
+
+    if (!list.length) {
+        return;
+    }
+
+    const currentUrl = list[modal._imageIndex];
+    image.src = currentUrl;
+    counter.textContent = `${modal._imageIndex + 1} / ${list.length}`;
+    nav.setAttribute("aria-hidden", list.length <= 1 ? "true" : "false");
+    nav.style.display = list.length <= 1 ? "none" : "flex";
+    image.onload = () => {
+        requestAnimationFrame(() => adjustProductImageModalNav(modal));
+    };
+    adjustProductImageModalNav(modal);
+}
+
+function openProductImageModal(imageUrl, imageList = null, startIndex = null) {
+    if (!imageUrl) {
+        return;
+    }
+
+    const modal = ensureProductImageModal();
+    const list = Array.isArray(imageList) && imageList.length ? imageList : [imageUrl];
+    const resolvedIndex = typeof startIndex === "number"
+        ? startIndex
+        : Math.max(0, list.indexOf(imageUrl));
+
+    modal._imageList = list;
+    modal._imageIndex = resolvedIndex;
+    updateProductImageModal(modal);
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
 }
 
 // ============================================
@@ -1599,6 +1782,20 @@ function renderProductDescription(data, priorityImageUrl = null) {
         contentHTML += '</div>';
     }
 
+    const galleryImagesRaw = priorityImageUrl
+        ? [{ url: priorityImageUrl, path: 'priority_image' }, ...allImages]
+        : allImages;
+    const seenGalleryImages = new Set();
+    const galleryImages = galleryImagesRaw.filter((img) => {
+        const key = `${img.url || ""}__${img.path || ""}`;
+        if (seenGalleryImages.has(key)) {
+            return false;
+        }
+        seenGalleryImages.add(key);
+        return true;
+    });
+    productImageGalleryList = galleryImages.map((img) => img.url);
+
     // Description and images in flex layout
     contentHTML += '<div class="description-content">';
 
@@ -1610,6 +1807,7 @@ function renderProductDescription(data, priorityImageUrl = null) {
     // Right side: single image with navigation (if images exist)
     if (allImages.length > 0) {
         const uniqueId = 'img-nav-' + Math.random().toString(36).substr(2, 9);
+        div.dataset.imageNavId = uniqueId;
         contentHTML += `
             <div class="description-images-nav" id="${uniqueId}">
                 <div class="image-item" data-current-index="0">
@@ -1631,13 +1829,9 @@ function renderProductDescription(data, priorityImageUrl = null) {
 
     // Gallery view (initially hidden)
     if (allImages.length > 0) {
-        // Include priority image at the beginning of gallery if it exists
-        const galleryImages = priorityImageUrl
-            ? [{ url: priorityImageUrl, path: 'priority_image' }, ...allImages]
-            : allImages;
-
+        const galleryClass = galleryImages.length % 3 === 0 ? "image-gallery three-col-prefer" : "image-gallery";
         contentHTML += `
-            <div class="image-gallery" style="display: none;">
+            <div class="${galleryClass}" style="display: none;">
                 <div class="gallery-header">
                     <h5>Image Gallery (${galleryImages.length})</h5>
                     <button class="circular-close-btn" aria-label="Close gallery" title="Close gallery">
@@ -1645,9 +1839,9 @@ function renderProductDescription(data, priorityImageUrl = null) {
                     </button>
                 </div>
                 <div class="gallery-grid">
-                    ${galleryImages.map(img => `
-                        <div class="gallery-item">
-                            <img src="${img.url}" alt="Product image" class="gallery-image" onerror="this.parentElement.style.display='none'">
+                    ${galleryImages.map((img, index) => `
+                        <div class="gallery-item" data-gallery-index="${index}">
+                            <img src="${img.url}" alt="Product image" class="gallery-image" data-gallery-index="${index}" onerror="this.parentElement.style.display='none'">
                             <div class="gallery-image-source">${formatImageSourcePath(img.path)}</div>
                         </div>
                     `).join('')}
@@ -1663,9 +1857,16 @@ function renderProductDescription(data, priorityImageUrl = null) {
     `;
 
     // Setup image navigation after DOM insertion
-    setTimeout(() => {
-        setupImageNavigation(div, allImages);
-    }, 0);
+    if (allImages.length > 0) {
+        const navSelector = div.dataset.imageNavId ? `#${div.dataset.imageNavId}` : null;
+        if (typeof waitForElm === "function" && navSelector) {
+            waitForElm(navSelector).then(() => {
+                setupImageNavigation(div, allImages, galleryImages);
+            });
+        } else {
+            setupImageNavigation(div, allImages, galleryImages);
+        }
+    }
 
     // Append additional properties inline at the bottom
     const additionalProps = renderAdditionalPropertiesInline(data);
@@ -1676,8 +1877,8 @@ function renderProductDescription(data, priorityImageUrl = null) {
     return div;
 }
 
-function setupImageNavigation(container, images) {
-    if (images.length <= 1) return;
+function setupImageNavigation(container, images, galleryImages = []) {
+    if (!images.length) return;
 
     const navContainer = container.querySelector('.description-images-nav');
     const imageItem = navContainer?.querySelector('.image-item');
@@ -1701,14 +1902,27 @@ function setupImageNavigation(container, images) {
         if (counter) counter.textContent = `${currentIndex + 1} / ${images.length}`;
     }
 
-    if (prevBtn) {
+    function openModalForCurrentImage() {
+        if (!galleryImages.length) {
+            openProductImageModal(images[currentIndex].url, [images[currentIndex].url], 0);
+            return;
+        }
+        const galleryIndex = galleryImages.findIndex(entry => entry.url === images[currentIndex].url);
+        openProductImageModal(
+            images[currentIndex].url,
+            galleryImages.map(entry => entry.url),
+            Math.max(0, galleryIndex)
+        );
+    }
+
+    if (prevBtn && images.length > 1) {
         prevBtn.addEventListener('click', () => {
             currentIndex = (currentIndex - 1 + images.length) % images.length;
             updateImage();
         });
     }
 
-    if (nextBtn) {
+    if (nextBtn && images.length > 1) {
         nextBtn.addEventListener('click', () => {
             currentIndex = (currentIndex + 1) % images.length;
             updateImage();
@@ -1726,6 +1940,22 @@ function setupImageNavigation(container, images) {
         closeGalleryBtn.addEventListener('click', () => {
             gallery.style.display = 'none';
             navContainer.style.display = 'flex';
+        });
+    }
+
+    imageItem.addEventListener('click', openModalForCurrentImage);
+
+    if (galleryImages.length && gallery) {
+        const galleryItems = gallery.querySelectorAll('.gallery-image');
+        galleryItems.forEach((imgEl) => {
+            imgEl.addEventListener('click', () => {
+                const index = Number(imgEl.dataset.galleryIndex || 0);
+                openProductImageModal(
+                    galleryImages[index]?.url,
+                    galleryImages.map(entry => entry.url),
+                    index
+                );
+            });
         });
     }
 }
