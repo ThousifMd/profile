@@ -229,18 +229,13 @@ function renderProductCsvList(container, rows, country, listSourceUrl, titleText
 }
 
 async function loadCsvList(url) {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            return null;
-        }
-        const csvText = await response.text();
-        const parsed = parseCSV(csvText);
-        return parsed.rows;
-    } catch (e) {
-        // Network error (CORS, DNS, offline) — return null so callers fall through gracefully
+    const response = await fetch(url);
+    if (!response.ok) {
         return null;
     }
+    const csvText = await response.text();
+    const parsed = parseCSV(csvText);
+    return parsed.rows;
 }
 
 // function loadMenu() {
