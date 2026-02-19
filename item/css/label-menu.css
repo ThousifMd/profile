@@ -19,9 +19,12 @@
   color: #333;
 }
 
-/* Dimmed state when sidebar is open */
-.menu-toggle-btn.sidebar-open {
-  opacity: 0.5;
+.menu-toggle-btn.dimmed {
+  opacity: 0.35;
+}
+
+.menu-toggle-btn.dimmed:hover {
+  opacity: 0.7;
 }
 
 .menu-icon {
