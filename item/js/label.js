@@ -4,13 +4,38 @@
 let menuItems = []; // { profileObject, quantity }
 let aggregateProfile = {};
 
+
+window.rsMenuInsightsAddFeatures = function () {
+  try {
+    const panel = document.getElementById("insightsPanel");
+    if (panel && panel.style.display === "none") {
+      document.getElementById("getInsightsBtn")?.click();
+    }
+
+    const input = document.getElementById("search-input");
+    if (input) {
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      // focus without selecting text (prevents "replacing")
+      input.focus({ preventScroll: true });
+
+      // put cursor at end (optional, but feels nice)
+      const v = input.value || "";
+      input.setSelectionRange(v.length, v.length);
+
+      return;
+    }
+  } catch (e) {
+    console.warn("rsMenuInsightsAddFeatures failed", e);
+  }
+};
 // Load js-yaml if missing
 if (typeof jsyaml === "undefined") {
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js";
     document.head.appendChild(s);
 }
-// Page cache used by Insights (Get Insights panel)
+// Page cache used by Insights  
 window.profileItemCache = window.profileItemCache || {};
 // Persist across refresh
 const PROFILE_ITEM_CACHE_KEY = "profileItemCache";
@@ -59,8 +84,8 @@ function safeGoHash(obj, removeKeys) {
 function syncInsightsPathFromCache() {
   try {
     const url =
-        window.profileItemCache.lastFoodApiUrl ||
-        window.profileItemCache.lastFoodSearchApiUrl;
+    window.profileItemCache.lastFoodSearchApiUrl ||
+    window.profileItemCache.lastFoodApiUrl;
 
 if (!url) return;
 
@@ -70,7 +95,7 @@ if (!url) return;
       applyCachedFoodApiUrlToYaml();
     }
 
-       // 2) Update hash (persist) AND remove Bee Density parambase
+       
     const h = (typeof getHash === "function") ? getHash() : getUrlHash();
     const existing = h && (h["features.path"] || h.features?.path);
 

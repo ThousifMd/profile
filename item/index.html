@@ -358,8 +358,11 @@ document.addEventListener('DOMContentLoaded', function() {
 btn.addEventListener('click', function() {
   panel.style.display = 'block';
 
-  const cachedFoodPath = window.profileItemCache && window.profileItemCache.lastFoodApiUrl;
-  const path = cachedFoodPath || buildInsightsPath();
+ const cachedFoodPath =
+  (window.profileItemCache && window.profileItemCache.lastFoodSearchApiUrl) ||
+  (window.profileItemCache && window.profileItemCache.lastFoodApiUrl);
+
+const path = cachedFoodPath || buildInsightsPath();
 
   // Restore last target 
   const targetSelect = document.getElementById('menuTargetSelect');
@@ -376,7 +379,9 @@ btn.addEventListener('click', function() {
     if (targetVal) payload["targets.path"] = targetVal;
     goHash(payload, "parambase,customYamlUrl");
   }
-
+if (typeof window.rsRefreshFromYaml === 'function') {
+  window.rsRefreshFromYaml();
+}
   try {
     document.dispatchEvent(new Event('hashChangeEvent'));
     window.dispatchEvent(new Event('hashchange'));
@@ -396,7 +401,9 @@ btn.addEventListener('click', function() {
     if (typeof goHash === 'function') {
       goHash({ 'targets.path': val }, 'parambase,customYamlUrl');
     }
-
+if (typeof window.rsRefreshFromYaml === 'function') {
+  window.rsRefreshFromYaml();
+}
     try {
       window.profileItemCache = window.profileItemCache || {};
       window.profileItemCache.lastTargetPath = val;
