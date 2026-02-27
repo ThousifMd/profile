@@ -1,4 +1,4 @@
-# Open Footprint
+# Profile
 
 Contribute to [our projects](../projects/)
 
@@ -24,8 +24,8 @@ Contribute to [our projects](../projects/)
 
 Multi-Regional Input-Output (MRIO)
 
-<a href="../localsite/info/">Supply-Chain / Area Industries</a>  
+<a href="../localsite/info/">Industry Supply-Chain</a>  
+[UN Timelines - Google Data Commons](../../localsite/timeline/)  
 <a href="footprint/sector_supply_impacts.html">Chord (D3) Sector Supply Impacts</a>
 <a href="charts/echarts/">Sankey (eCharts)</a>
 <a href="trade/map/">Trade Flow Map</a>  
-[UN Timelines](../../localsite/timeline/)
