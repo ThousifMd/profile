@@ -1,14 +1,14 @@
-# PartnerTools CRM Database
+# SuiteCRM SQL
 
-[Admin Dashboard](../../team/admin/) for our collaborative dev site using [SuiteCRM's](https://SuiteCRM.com) standard [database schema](https://schema--suitecrm-docs.netlify.app/schema) which has a [large support community](https://community.SuiteCRM.com). 
+Table names matching Salesforce and [Microsoft Dynamics Common Data Model (CDM)](https://learn.microsoft.com/en-us/common-data-model)
+Using [SuiteCRM's](https://SuiteCRM.com) standard [database schema](https://schema--suitecrm-docs.netlify.app/schema) which has a [large support community](https://community.SuiteCRM.com). 
 
-[Configure Your Local Server](../../team/admin/server/) and/or [install additional repos](/localsite/start/steps).
-
-Tables names match Salesforce and [Microsoft Dynamics Common Data Model (CDM)](https://learn.microsoft.com/en-us/common-data-model):
+[Configure Your Local Server](../../team/admin/server/) - Code CLI commands for Python and Rust servers
 
 <!-- looked here: https://github.com/profle/crm/blob/main/crm/sql/suitecrm-postgres.sql -->
-[Our Azure management script](../azure/) installs this [Common SQL Schema](https://github.com/ModelEarth/profile/blob/main/crm/sql/suitecrm-postgres.sql) [[Maria and SQL versions](https://github.com/ModelEarth/profile/tree/main/crm/sql)] with table names including:
+[Our Azure management script](../azure/) installs this [Common SQL Schema](https://github.com/ModelEarth/profile/blob/main/crm/sql/suitecrm-postgres.sql) [[Maria and SQL versions](https://github.com/ModelEarth/profile/tree/main/crm/sql)]
 
+**Table Names**
 users
 accounts - which include organizations
 contacts
@@ -26,7 +26,7 @@ leads
 surveyquestionoptions
 tags
 taggables
-[View all table names](sql/tables.md)
+[View all table names](https://github.com/ModelEarth/profile/blob/main/crm/sql/tables.md)
 
 
 ## 10-Minute SuiteCRM Setup
