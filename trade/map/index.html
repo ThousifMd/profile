@@ -88,6 +88,35 @@
             color: #555;
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
+        #source-filters label:hover {
+            background: #f0f4ff;
+            border-radius: 3px;
+        }
+        #source-filters label.highlighted {
+            background: #e8f0ff;
+            font-weight: 600;
+        }
+        #map-tooltip {
+            position: fixed;
+            pointer-events: none;
+            background: rgba(20, 20, 20, 0.88);
+            color: #fff;
+            padding: 8px 11px;
+            border-radius: 5px;
+            font-size: 12px;
+            line-height: 1.6;
+            z-index: 2000;
+            display: none;
+            max-width: 220px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        #map-tooltip .tt-direction {
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        #map-tooltip .tt-co2 {
+            color: #adf;
+        }
     </style>
 </head>
 <body>
@@ -110,6 +139,7 @@
     <div id="legend">
         Arrow thickness = total embodied CO&#x2082; from exporter &rarr; importer
     </div>
+    <div id="map-tooltip"></div>
 
     <script>
 // ---------------------------------------------------------------------------
@@ -207,6 +237,67 @@ const g   = svg.append("g");
 const colorScale = d3.scaleOrdinal(d3.schemeTableau10);
 
 // ---------------------------------------------------------------------------
+// Interaction state
+// ---------------------------------------------------------------------------
+let selectedArrow = null; // fromCode of the clicked/selected arrow
+const NORMAL_OPACITY   = 0.65;
+const HIGHLIGHT_OPACITY = 1.0;
+const DIM_OPACITY      = 0.08;
+
+const tooltip = document.getElementById("map-tooltip");
+
+function showTooltip(trade, targetCountry, evt) {
+    tooltip.innerHTML =
+        `<div class="tt-direction">${countryLabel(trade.from)} &rarr; ${countryLabel(targetCountry)}</div>` +
+        `<div class="tt-co2">${fmtCO2(trade.co2)}</div>`;
+    tooltip.style.display = "block";
+    moveTooltip(evt);
+}
+
+function moveTooltip(evt) {
+    const x = evt.clientX + 14;
+    const y = evt.clientY - 10;
+    tooltip.style.left = x + "px";
+    tooltip.style.top  = y + "px";
+}
+
+function hideTooltip() {
+    tooltip.style.display = "none";
+}
+
+function applyHighlight(fromCode) {
+    // Dim all arrows
+    g.selectAll("path.arrow")
+        .attr("opacity", DIM_OPACITY);
+    // Brighten target arrow
+    const targetPath = g.select(`path.arrow-${fromCode}`);
+    if (!targetPath.empty()) {
+        const baseSW = parseFloat(targetPath.attr("data-base-sw")) || 2;
+        targetPath
+            .attr("opacity", HIGHLIGHT_OPACITY)
+            .attr("stroke-width", baseSW + 3);
+    }
+    // Highlight legend label
+    document.querySelectorAll("#source-filters label").forEach(el => {
+        el.classList.toggle("highlighted", el.dataset.from === fromCode);
+    });
+}
+
+function clearHighlight() {
+    // Restore all arrows to base opacity and stroke-width
+    g.selectAll("path.arrow").each(function() {
+        const baseSW = parseFloat(d3.select(this).attr("data-base-sw")) || 2;
+        d3.select(this)
+            .attr("opacity", NORMAL_OPACITY)
+            .attr("stroke-width", baseSW);
+    });
+    document.querySelectorAll("#source-filters label").forEach(el => {
+        el.classList.remove("highlighted");
+    });
+    hideTooltip();
+}
+
+// ---------------------------------------------------------------------------
 // Curve drawing (unchanged from original)
 // ---------------------------------------------------------------------------
 function projectPoint(lon, lat) {
@@ -266,16 +357,43 @@ function renderArrows(trades, targetCountry) {
             .attr("opacity", 0.7);
 
         // Arrow path
-        g.append("path")
+        const path = g.append("path")
             .datum(trade)
             .attr("id", pathId)
             .attr("class", `arrow arrow-${trade.from}`)
             .attr("d", drawCurve(trade))
             .attr("stroke", color)
             .attr("stroke-width", sw)
+            .attr("opacity", NORMAL_OPACITY)
+            .attr("data-base-sw", sw)
+            .attr("data-from", trade.from)
             .attr("marker-end", `url(#${markerId})`)
-            .append("title")
-            .text(`${countryLabel(trade.from)} → ${countryLabel(targetCountry)}\n${fmtCO2(trade.co2)}`);
+            .style("cursor", "pointer");
+
+        path.on("mouseover", function(evt) {
+                applyHighlight(trade.from);
+                showTooltip(trade, targetCountry, evt);
+            })
+            .on("mousemove", function(evt) {
+                moveTooltip(evt);
+            })
+            .on("mouseout", function() {
+                hideTooltip();
+                if (selectedArrow) {
+                    applyHighlight(selectedArrow);
+                } else {
+                    clearHighlight();
+                }
+            })
+            .on("click", function() {
+                if (selectedArrow === trade.from) {
+                    selectedArrow = null;
+                    clearHighlight();
+                } else {
+                    selectedArrow = trade.from;
+                    applyHighlight(trade.from);
+                }
+            });
 
         // Country code label on path
         g.append("text")
@@ -320,10 +438,23 @@ function buildCheckboxes(trades) {
               .attr("visibility", vis);
         });
 
+        label.dataset.from = trade.from;
         label.appendChild(checkbox);
         label.appendChild(document.createTextNode(
             ` ${trade.from} — ${fmtCO2(trade.co2)}`
         ));
+
+        label.addEventListener("mouseenter", function() {
+            applyHighlight(trade.from);
+        });
+        label.addEventListener("mouseleave", function() {
+            if (selectedArrow) {
+                applyHighlight(selectedArrow);
+            } else {
+                clearHighlight();
+            }
+        });
+
         container.appendChild(label);
     });
 }
@@ -336,6 +467,8 @@ function setStatus(msg) {
 }
 
 function loadFlows(targetCountry) {
+    selectedArrow = null;
+    hideTooltip();
     setStatus("Loading…");
     g.selectAll("*").remove();
     svg.selectAll("defs").remove();
