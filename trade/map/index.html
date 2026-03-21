@@ -7,168 +7,382 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://d3js.org/d3.v6.min.js"></script>
     <style>
+        body { margin: 0; font-family: sans-serif; }
         #map {
-            height: 98vh;
+            height: 100vh;
             width: 100%;
         }
         .arrow {
             fill: none;
             stroke-linecap: round;
-            opacity: 0.6;
+            opacity: 0.65;
         }
-        .checkbox-container {
+        .control-panel {
             position: absolute;
             top: 10px;
             left: 10px;
             background: white;
-            padding: 10px;
+            padding: 12px 14px;
             border: 1px solid #ccc;
+            border-radius: 6px;
             z-index: 1000;
+            min-width: 180px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .control-panel h4 {
+            margin: 0 0 8px;
+            font-size: 13px;
+            color: #333;
+        }
+        .control-panel label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: #444;
+        }
+        #country-select {
+            width: 100%;
+            padding: 4px 6px;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        #status-msg {
+            font-size: 11px;
+            color: #888;
+            font-style: italic;
+            margin-bottom: 8px;
+        }
+        #source-filters {
+            border-top: 1px solid #eee;
+            padding-top: 8px;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        #source-filters label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 3px;
+            cursor: pointer;
         }
         .label-text {
-            fill: black;
-            font-size: 12px;
+            fill: #222;
+            font-size: 11px;
             font-weight: bold;
             paint-order: stroke;
             stroke: white;
-            stroke-width: 2px; /* halo for readability */
+            stroke-width: 2.5px;
+        }
+        #legend {
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            background: white;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            z-index: 1000;
+            font-size: 11px;
+            color: #555;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="checkbox-container" id="checkbox-container"></div>
+
+    <div class="control-panel">
+        <h4>Exiobase Trade Flows · 2022</h4>
+        <label for="country-select">Importing country:</label>
+        <select id="country-select">
+            <option value="US">United States (US)</option>
+            <option value="CN">China (CN)</option>
+            <option value="DE">Germany (DE)</option>
+            <option value="IN">India (IN)</option>
+            <option value="RU">Russia (RU)</option>
+        </select>
+        <div id="status-msg">Loading&hellip;</div>
+        <div id="source-filters"></div>
+    </div>
+
+    <div id="legend">
+        Arrow thickness = total embodied CO&#x2082; from exporter &rarr; importer
+    </div>
+
     <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const map = L.map('map').setView([25, 12], 3);
+// ---------------------------------------------------------------------------
+// Country coordinates [lon, lat] for all Exiobase trading partners
+// ---------------------------------------------------------------------------
+const COORDS = {
+    US: [-99.9018, 37.0902],
+    CN: [104.1954, 35.8617],
+    DE: [10.4515,  51.1657],
+    IN: [78.9629,  20.5937],
+    RU: [105.3188, 61.5240],
+    CA: [-96.8,    56.1   ],
+    JP: [138.2529, 36.2048],
+    GB: [-3.4359,  55.3781],
+    FR: [2.2137,   46.2276],
+    BR: [-51.9253, -14.235],
+    AU: [133.7751, -25.274],
+    MX: [-102.553, 23.6345],
+    KR: [127.7669, 35.9078],
+    IT: [12.5674,  41.8719],
+    ES: [-3.7492,  40.4637],
+    NL: [5.2913,   52.1326],
+    SA: [45.0792,  23.8859],
+    ZA: [22.9375,  -30.560],
+    AR: [-63.617,  -38.416],
+    TR: [35.2433,  38.9637],
+    ID: [113.921,  -0.7893],
+    PL: [19.1451,  51.9194],
+    BE: [4.4699,   50.5039],
+    SE: [18.6435,  60.1282],
+    NO: [8.4689,   60.4720],
+    CH: [8.2275,   46.8182],
+    AT: [14.5501,  47.5162],
+    CZ: [15.4730,  49.8175],
+    FI: [25.7482,  61.9241],
+    DK: [9.5018,   56.2639],
+    TW: [120.960,  23.6978],
+    TH: [100.993,  15.8700],
+    MY: [109.698,  4.21050],
+    SG: [103.820,  1.35210],
+    PH: [121.774,  12.8797],
+    VN: [108.277,  14.0583],
+    NG: [8.6753,   9.08200],
+    EG: [30.8025,  26.8206],
+    GR: [21.8243,  39.0742],
+    PT: [-8.2245,  39.3999],
+    HU: [19.5033,  47.1625],
+    RO: [24.9668,  45.9432],
+    WM: [20,       15     ],
+};
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+const COUNTRY_NAMES = {
+    US: "United States", CN: "China",          DE: "Germany",
+    IN: "India",         RU: "Russia",         CA: "Canada",
+    JP: "Japan",         GB: "United Kingdom", FR: "France",
+    BR: "Brazil",        AU: "Australia",      MX: "Mexico",
+    KR: "South Korea",   IT: "Italy",          ES: "Spain",
+    NL: "Netherlands",   SA: "Saudi Arabia",   ZA: "South Africa",
+    AR: "Argentina",     TR: "Turkey",         ID: "Indonesia",
+    PL: "Poland",        BE: "Belgium",        SE: "Sweden",
+    NO: "Norway",        CH: "Switzerland",    AT: "Austria",
+    CZ: "Czech Republic",FI: "Finland",        DK: "Denmark",
+    TW: "Taiwan",        TH: "Thailand",       MY: "Malaysia",
+    SG: "Singapore",     PH: "Philippines",    VN: "Vietnam",
+    NG: "Nigeria",       EG: "Egypt",          GR: "Greece",
+    PT: "Portugal",      HU: "Hungary",        RO: "Romania",
+};
 
-    const countries = {
-        "USA": [-99.9018, 37.0902],
-        "China": [104.1954, 35.8617],
-        "Germany": [10.4515, 51.1657],
-        "Brazil": [-51.9253, -14.2350],
-        "India": [78.9629, 20.5937]
-    };
+function countryLabel(code) {
+    return COUNTRY_NAMES[code] || code;
+}
 
-    const trades = [
-        { from: "USA", to: "China", volume: 500 },
-        { from: "USA", to: "Germany", volume: 300 },
-        { from: "Brazil", to: "USA", volume: 200 },
-        { from: "India", to: "Germany", volume: 150 },
-        { from: "China", to: "India", volume: 400 },
-        { from: "Germany", to: "Brazil", volume: 100 },
-        { from: "India", to: "USA", volume: 250 },
-        { from: "China", to: "Germany", volume: 350 },
-        { from: "Brazil", to: "China", volume: 100 },
-        { from: "Germany", to: "USA", volume: 450 },
-    ];
+function fmtCO2(val) {
+    // values are very large raw numbers — show in Gt (÷1e12) or Tt (÷1e15)
+    if (val >= 1e15) return (val / 1e15).toFixed(2) + " Tt CO₂";
+    if (val >= 1e12) return (val / 1e12).toFixed(2) + " Gt CO₂";
+    if (val >= 1e9)  return (val / 1e9).toFixed(2)  + " Mt CO₂";
+    return val.toExponential(2) + " CO₂";
+}
 
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+// ---------------------------------------------------------------------------
+// Map setup
+// ---------------------------------------------------------------------------
+const map = L.map("map").setView([25, 12], 2);
 
-    function projectPoint(lon, lat) {
-        return map.latLngToLayerPoint(new L.LatLng(lat, lon));
-    }
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap contributors | Data: EXIOBASE 3 / ModelEarth",
+}).addTo(map);
 
-    L.svg().addTo(map);
-    const svg = d3.select("#map").select("svg"),
-          g = svg.append("g");
+L.svg().addTo(map);
+const svg = d3.select("#map").select("svg");
+const g   = svg.append("g");
 
-    function drawCurve(d) {
-        const from = projectPoint(...countries[d.from]);
-        const to = projectPoint(...countries[d.to]);
-        const dx = to.x - from.x,
-              dy = to.y - from.y,
-              dr = Math.sqrt(dx * dx + dy * dy);
+const colorScale = d3.scaleOrdinal(d3.schemeTableau10);
 
-        // A consistent sweep flag to ensure arc direction.
-        // You might need to adjust this for specific curve aesthetics.
-        const sweepFlag = 1;
+// ---------------------------------------------------------------------------
+// Curve drawing (unchanged from original)
+// ---------------------------------------------------------------------------
+function projectPoint(lon, lat) {
+    return map.latLngToLayerPoint(new L.LatLng(lat, lon));
+}
 
-        // Ensure the path extends all the way to the 'to' point
-        let targetX = to.x;
-        let targetY = to.y;
+function drawCurve(d) {
+    const from = projectPoint(...COORDS[d.from]);
+    const to   = projectPoint(...COORDS[d.to]);
+    const dx   = to.x - from.x;
+    const dy   = to.y - from.y;
+    const dr   = Math.sqrt(dx * dx + dy * dy);
+    return `M${from.x},${from.y}A${dr},${dr} 0 0,1 ${to.x},${to.y}`;
+}
 
-        return `M${from.x},${from.y}A${dr},${dr} 0 0,${sweepFlag} ${targetX},${targetY}`;
-    }
+// Redraw all arrow paths on zoom/pan
+function update() {
+    g.selectAll("path.arrow").attr("d", drawCurve);
+}
+map.on("zoomend", update);
+map.on("moveend", update);
 
-    // Draw arrows and attach text on path
+// ---------------------------------------------------------------------------
+// Render arrows from aggregated trade data
+// ---------------------------------------------------------------------------
+function renderArrows(trades, targetCountry) {
+    // Clear previous arrows and defs
+    g.selectAll("*").remove();
+    svg.selectAll("defs").remove();
+
+    if (trades.length === 0) return;
+
+    const maxCO2 = d3.max(trades, d => d.co2);
+    const minCO2 = d3.min(trades, d => d.co2);
+    const widthScale = d3.scaleLinear()
+        .domain([minCO2, maxCO2])
+        .range([1.5, 14]);
+
     trades.forEach((trade, i) => {
-        const pathId = `trade-path-${i}`;
+        const pathId   = `trade-path-${i}`;
         const markerId = `arrowhead-${i}`;
+        const color    = colorScale(i);
+        const sw       = widthScale(trade.co2);
 
-        // Arrowhead marker definition - INCREASED SIZE HERE
+        // Arrowhead marker
         svg.append("defs").append("marker")
             .attr("id", markerId)
             .attr("viewBox", "0 -5 10 10")
-            .attr("refX", 10) // Still 10, as it refers to the internal viewBox coordinates
+            .attr("refX", 10)
             .attr("refY", 0)
-            .attr("markerWidth", 6) 
-            .attr("markerHeight", 6) 
+            .attr("markerWidth", 5)
+            .attr("markerHeight", 5)
             .attr("orient", "auto")
             .append("path")
             .attr("d", "M0,-5L10,0L0,5")
-            .attr("fill", colorScale(i))
-            .attr("opacity", 0.6);
+            .attr("fill", color)
+            .attr("opacity", 0.7);
 
-        // Path for the arrow (full length to destination 'to')
+        // Arrow path
         g.append("path")
             .datum(trade)
             .attr("id", pathId)
             .attr("class", `arrow arrow-${trade.from}`)
             .attr("d", drawCurve(trade))
-            .attr("stroke", colorScale(i))
-            .attr("stroke-width", trade.volume / 50)
-            .attr("marker-end", `url(#${markerId})`);
+            .attr("stroke", color)
+            .attr("stroke-width", sw)
+            .attr("marker-end", `url(#${markerId})`)
+            .append("title")
+            .text(`${countryLabel(trade.from)} → ${countryLabel(targetCountry)}\n${fmtCO2(trade.co2)}`);
 
-        // Attach text to follow the curve
+        // Country code label on path
         g.append("text")
             .append("textPath")
             .attr("xlink:href", `#${pathId}`)
-            .attr("startOffset", "50%")
+            .attr("startOffset", "42%")
             .attr("class", "label-text")
             .attr("text-anchor", "middle")
-            .text(trade.volume);
+            .text(trade.from);
     });
+}
 
-    // Update positions on map movement
-    function update() {
-        g.selectAll("path.arrow").attr("d", drawCurve);
-        // Text path doesn't need re-linking unless path IDs change,
-        // but its position along the *newly drawn* path will be updated by startOffset.
-    }
+// ---------------------------------------------------------------------------
+// Build source-country checkboxes
+// ---------------------------------------------------------------------------
+function buildCheckboxes(trades) {
+    const container = document.getElementById("source-filters");
+    container.innerHTML = "";
 
-    map.on("zoomend", update);
-    map.on("moveend", update);
+    if (trades.length === 0) return;
 
-    // Create checkboxes
-    const checkboxContainer = document.getElementById('checkbox-container');
-    const uniqueFromCountries = [...new Set(trades.map(trade => trade.from))];
+    const header = document.createElement("div");
+    header.style.cssText = "font-size:11px;font-weight:600;margin-bottom:6px;color:#333;";
+    header.textContent = "Toggle exporters:";
+    container.appendChild(header);
 
-    uniqueFromCountries.forEach(country => {
-        const label = document.createElement('label');
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
+    trades.forEach(trade => {
+        const label    = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type    = "checkbox";
         checkbox.checked = true;
-        checkbox.value = country;
-        checkbox.addEventListener('change', function() {
-            const visibility = this.checked ? 'visible' : 'hidden';
-            d3.selectAll(`.arrow-${country}`).attr('visibility', visibility);
+        checkbox.value   = trade.from;
+
+        checkbox.addEventListener("change", function() {
+            const vis = this.checked ? "visible" : "hidden";
+            d3.selectAll(`.arrow-${trade.from}`).attr("visibility", vis);
             d3.selectAll("textPath")
-              .filter(function() { return this.parentNode.__data__.from === country; })
-              .attr("visibility", visibility);
+              .filter(function() {
+                  return this.parentNode.__data__ &&
+                         this.parentNode.__data__.from === trade.from;
+              })
+              .attr("visibility", vis);
         });
 
         label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(country));
-        checkboxContainer.appendChild(label);
-        checkboxContainer.appendChild(document.createElement('br'));
+        label.appendChild(document.createTextNode(
+            ` ${trade.from} — ${fmtCO2(trade.co2)}`
+        ));
+        container.appendChild(label);
     });
+}
+
+// ---------------------------------------------------------------------------
+// Load and process CSV for a target country
+// ---------------------------------------------------------------------------
+function setStatus(msg) {
+    document.getElementById("status-msg").textContent = msg;
+}
+
+function loadFlows(targetCountry) {
+    setStatus("Loading…");
+    g.selectAll("*").remove();
+    svg.selectAll("defs").remove();
+    document.getElementById("source-filters").innerHTML = "";
+
+    const url = `https://raw.githubusercontent.com/ModelEarth/trade-data/main/year/2022/${targetCountry}/imports/trade_impact.csv`;
+
+    d3.csv(url).then(function(data) {
+        // Aggregate CO2_total by region1 (exporting country)
+        const flowMap = new Map();
+        for (const row of data) {
+            const src = row.region1;
+            if (!src || src === targetCountry) continue; // skip domestic
+            if (!COORDS[src]) continue;                  // skip unknown coords
+            const val = parseFloat(row.CO2_total) || 0;
+            if (val <= 0) continue;
+            flowMap.set(src, (flowMap.get(src) || 0) + val);
+        }
+
+        const trades = Array.from(flowMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([from, co2]) => ({ from, to: targetCountry, co2 }));
+
+        if (trades.length === 0) {
+            setStatus("No data found.");
+            return;
+        }
+
+        setStatus(`${trades.length} exporters → ${countryLabel(targetCountry)}`);
+        renderArrows(trades, targetCountry);
+        buildCheckboxes(trades);
+
+    }).catch(function(err) {
+        setStatus("Error loading data.");
+        console.error("Trade flow fetch failed:", err);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Country selector
+// ---------------------------------------------------------------------------
+document.getElementById("country-select").addEventListener("change", function() {
+    loadFlows(this.value);
 });
+
+// Initial load
+loadFlows("US");
     </script>
 </body>
 </html>
