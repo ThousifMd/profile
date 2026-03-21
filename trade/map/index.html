@@ -15,7 +15,8 @@
         .arrow {
             fill: none;
             stroke-linecap: round;
-            opacity: 0.65;
+            pointer-events: all;
+            cursor: default !important;
         }
         .control-panel {
             position: absolute;
@@ -74,9 +75,6 @@
             paint-order: stroke;
             stroke: white;
             stroke-width: 2.5px;
-        }
-        #map svg path.arrow {
-            cursor: default !important;
         }
         #legend {
             position: absolute;
@@ -271,14 +269,14 @@ function hideTooltip() {
 function applyHighlight(fromCode) {
     // Dim all arrows
     g.selectAll("path.arrow")
-        .attr("opacity", DIM_OPACITY);
+        .style("opacity", DIM_OPACITY);
     // Brighten target arrow
-    const targetPath = g.select(`path.arrow-${fromCode}`);
+    const targetPath = g.select("path.arrow-" + fromCode);
     if (!targetPath.empty()) {
         const baseSW = parseFloat(targetPath.attr("data-base-sw")) || 2;
         targetPath
-            .attr("opacity", HIGHLIGHT_OPACITY)
-            .attr("stroke-width", baseSW + 3);
+            .style("opacity", HIGHLIGHT_OPACITY)
+            .style("stroke-width", (baseSW + 3) + "px");
     }
     // Highlight legend label
     document.querySelectorAll("#source-filters label").forEach(el => {
@@ -289,10 +287,9 @@ function applyHighlight(fromCode) {
 function clearHighlight() {
     // Restore all arrows to base opacity and stroke-width
     g.selectAll("path.arrow").each(function() {
-        const baseSW = parseFloat(d3.select(this).attr("data-base-sw")) || 2;
         d3.select(this)
-            .attr("opacity", NORMAL_OPACITY)
-            .attr("stroke-width", baseSW);
+            .style("opacity", NORMAL_OPACITY)
+            .style("stroke-width", null); // remove inline override, attr value takes back over
     });
     document.querySelectorAll("#source-filters label").forEach(el => {
         el.classList.remove("highlighted");
@@ -367,7 +364,7 @@ function renderArrows(trades, targetCountry) {
             .attr("d", drawCurve(trade))
             .attr("stroke", color)
             .attr("stroke-width", sw)
-            .attr("opacity", NORMAL_OPACITY)
+            .style("opacity", NORMAL_OPACITY)
             .attr("data-base-sw", sw)
             .attr("data-from", trade.from)
             .attr("marker-end", `url(#${markerId})`)
